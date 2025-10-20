@@ -1,0 +1,16 @@
+[
+  {
+    "path": "assets/sprites/floor/floor1_1x1_1.png",
+    "name": "floor1",
+    "category": "floor",
+    "width": 1,
+    "height": 1
+  },
+  {
+    "path": "assets/sprites/wall/paredBase_1x3_1.png",
+    "name": "paredBase",
+    "category": "wall",
+    "width": 1,
+    "height": 3
+  }
+]
