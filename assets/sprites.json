@@ -7,6 +7,20 @@
     "height": 1
   },
   {
+    "path": "assets/sprites/floor/floor2_8x8_1.png",
+    "name": "floor2",
+    "category": "floor",
+    "width": 8,
+    "height": 8
+  },
+  {
+    "path": "assets/sprites/floor/floor3_2x2_1.png",
+    "name": "floor3",
+    "category": "floor",
+    "width": 2,
+    "height": 2
+  },
+  {
     "path": "assets/sprites/wall/paredBase_1x3_1.png",
     "name": "paredBase",
     "category": "wall",

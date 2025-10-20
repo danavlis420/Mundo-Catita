@@ -1,6 +1,10 @@
 ## Anotar siguientes pasos del proyecto
 
-
+- arreglar alineacion de sprites
+- agregar zoom con rueda
+- agregar toogle de grilla
+- crear sprites
+- crear personaje y animar
 
 
 
