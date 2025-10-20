@@ -1,0 +1,44 @@
+:root{
+--bg: #0f1720; /* color base del contenedor */
+--hud-bg: rgba(0,0,0,0.3);
+--hud-fg: #e6eef8;
+}
+html,body{
+height:100%;
+margin:0;
+}
+body{
+background:var(--bg);
+font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+-webkit-font-smoothing:antialiased;
+-moz-osx-font-smoothing:grayscale;
+}
+#game-root{
+position:fixed;
+inset:0; /* ocupa toda la pantalla */
+overflow:hidden;
+}
+#game-canvas{
+display:block;
+width:100%;
+height:100%;
+outline:none; /* para evitar borde cuando tiene foco */
+image-rendering: optimizeSpeed; /* para píxeles limpios si usás sprites pequeños */
+}
+#hud{
+position:fixed;
+left:12px;
+top:12px;
+background:var(--hud-bg);
+color:var(--hud-fg);
+padding:8px 12px;
+border-radius:8px;
+font-size:13px;
+z-index:10;
+}
+
+
+/* Pequeños estilos responsivos */
+@media (max-width:480px){
+#hud{ font-size:12px; padding:6px 8px }
+}
