@@ -42,3 +42,20 @@ z-index:10;
 @media (max-width:480px){
 #hud{ font-size:12px; padding:6px 8px }
 }
+
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  font-family: sans-serif;
+}
+#hud select {
+  margin: 0 5px;
+}
+
+
+canvas:active { cursor: grab; }
