@@ -105,24 +105,27 @@ export class Grid {
     ctx.restore();
   }
 
-  // -------------------------------------------------------------------------
-  // Dibujo de sprites con altura 3D y multi-tile
+    // -------------------------------------------------------------------------
+  // Dibujo de sprites con altura 3D y multi-tile (sin recortar)
   // -------------------------------------------------------------------------
   drawSprite(ctx, sprite, tilePos) {
-    const depth = sprite.depth || 1; // altura vertical
-    const width = sprite.width || 1;  // cuántas celdas ocupa horizontal
+    const depth = sprite.depth || 1;   // altura conceptual (para z-order)
+    const width = sprite.width || 1;   // cuántas celdas ocupa horizontalmente
     const height = sprite.height || 1; // cuántas celdas ocupa en planta
 
-    // Ajuste para multi-tile: colocamos la base sobre la esquina inferior-central de la celda
+    // Colocar la base sobre el tile actual (alineado por centro inferior)
     const drawX = tilePos.x - (this.tileW * width) / 2;
-    const drawY = tilePos.y - this.tileH * (depth - 1);
+    const drawY = tilePos.y - (sprite.img.height - this.tileH); 
+    // Esto posiciona el pie del sprite exactamente sobre el tile base
 
+    // Dibujar el sprite completo (usando su tamaño real)
     ctx.drawImage(
       sprite.img,
       drawX,
-      drawY - this.tileH * (height - 1),
+      drawY,
       this.tileW * width,
-      this.tileH * height
+      sprite.img.height
     );
   }
+
 }

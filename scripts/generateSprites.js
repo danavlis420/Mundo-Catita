@@ -5,21 +5,12 @@
 const fs = require('fs');
 const path = require('path');
 
-// ---------------------------------------------------------------------------
-// Configuración de carpetas
-// ---------------------------------------------------------------------------
 const rootDir = path.join(__dirname, '../assets/sprites');
 const outputDir = path.join(__dirname, '../data');
 const outputFile = path.join(outputDir, 'sprites.json');
 
-// ---------------------------------------------------------------------------
-// Crear carpeta data si no existe
-// ---------------------------------------------------------------------------
 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
-// ---------------------------------------------------------------------------
-// Función principal
-// ---------------------------------------------------------------------------
 function generateSprites() {
   const categories = fs.readdirSync(rootDir, { withFileTypes: true })
     .filter(dir => dir.isDirectory())
@@ -52,10 +43,8 @@ function generateSprites() {
     }
   }
 
-  // Guardar el JSON final
   fs.writeFileSync(outputFile, JSON.stringify(allSprites, null, 2));
   console.log(`✅ Archivo generado: ${outputFile}`);
 }
 
-// ---------------------------------------------------------------------------
 generateSprites();

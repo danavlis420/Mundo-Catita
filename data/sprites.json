@@ -1,5 +1,6 @@
 [
   {
+    "id": "floor_floor1_1x1_1",
     "name": "floor1",
     "category": "floor",
     "path": "assets/sprites/floor/floor1_1x1_1.png",
@@ -8,6 +9,7 @@
     "depth": 1
   },
   {
+    "id": "floor_floor2_8x8_1",
     "name": "floor2",
     "category": "floor",
     "path": "assets/sprites/floor/floor2_8x8_1.png",
@@ -16,6 +18,7 @@
     "depth": 1
   },
   {
+    "id": "floor_floor3_2x2_1",
     "name": "floor3",
     "category": "floor",
     "path": "assets/sprites/floor/floor3_2x2_1.png",
@@ -24,6 +27,7 @@
     "depth": 1
   },
   {
+    "id": "wall_paredBase_1x1_3",
     "name": "paredBase",
     "category": "wall",
     "path": "assets/sprites/wall/paredBase_1x1_3.png",

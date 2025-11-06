@@ -1,5 +1,3 @@
-//main.js
-
 // scripts/main.js
 // Entry point modular para Mundo Catita
 
@@ -265,7 +263,7 @@ function loop(ts) {
 
   grid.draw(ctx, camera);
 
-  // PREVIEW DE SPRITE
+  // ------------------- PREVIEW DE SPRITE -------------------
   if (hud.mode === 'sprite' && hud.getSelectedSprite() && mousePos) {
     const spritePath = hud.getSelectedSprite();
     const spriteData = hud.getSpriteData(spritePath);
@@ -273,15 +271,27 @@ function loop(ts) {
       const baseTile = getBaseTileUnderCursor(mousePos);
       if (baseTile) {
         const p = grid.tileToScreen(baseTile.x, baseTile.y);
+        const depth = spriteData.depth || 1;
+        const width = spriteData.width || 1;
+
+        const drawX = p.x - (grid.tileW * width) / 2;
+        const drawY = p.y - grid.tileH * (depth - 1);
+        const spritePixelHeight = grid.tileH * depth;
+
         ctx.save();
+        ctx.translate(
+          canvas.width / (2 * DPR) - camera.x,
+          canvas.height / (4 * DPR) - camera.y
+        );
         ctx.globalAlpha = 0.5;
         ctx.drawImage(
           spriteData.img,
-          p.x - grid.tileW / 2 - camera.x,
-          p.y - grid.tileH * spriteData.height - camera.y,
-          grid.tileW * spriteData.width,
-          grid.tileH * spriteData.height
+          drawX,
+          drawY - (spriteData.img.height - grid.tileH),
+          grid.tileW * width,
+          spriteData.img.height
         );
+
         ctx.restore();
       }
     }
