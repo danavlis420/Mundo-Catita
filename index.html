@@ -1,27 +1,27 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-<title>Mundo Catita - Base</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>Mundo Catita - Base</title>
+
+  <!-- Estilos principales -->
+  <link rel="stylesheet" href="styles/styles.css">
+  <link rel="stylesheet" href="styles/game.css">
+  <link rel="stylesheet" href="styles/hud.css">
 </head>
 <body>
-<!-- Contenedor principal -->
-<div id="game-root">
-<canvas id="game-canvas" tabindex="0" aria-label="Canvas del juego Mundo Catita"></canvas>
-<!-- Panel mínimo de depuración (opcional) -->
+  <!-- Contenedor principal -->
+  <div id="game-root">
+    <canvas id="game-canvas" tabindex="0" aria-label="Canvas del juego Mundo Catita"></canvas>
 
-<div id="hud">
-    <div id="info">Mundo Catita — v0.1</div>
+    <!-- HUD -->
+    <div id="hud">
+      <div id="info">Mundo Catita — v0.1</div>
+    </div>
+  </div>
 
-</div>
-
-
-<!-- Scripts del juego -->
-<script type="module" src="scripts/main.js"></script>
-
-<!-- Lugar para scripts futuros en /scripts -->
-<!-- <script src="scripts/otraLogica.js"></script> -->
+  <!-- Scripts -->
+  <script type="module" src="scripts/main.js"></script>
 </body>
 </html>

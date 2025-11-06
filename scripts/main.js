@@ -1,6 +1,4 @@
 // scripts/main.js
-// Entry point modular para Mundo Catita
-
 import { CONFIG, lerp } from './config.js';
 import { Grid } from './grid.js';
 import { Player } from './player.js';
@@ -8,17 +6,116 @@ import { Camera } from './camera.js';
 import { initInput } from './input.js';
 import { HUD } from './hud.js';
 
-// Canvas y contexto
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 let DPR = window.devicePixelRatio || 1;
 
-// Instancias principales
+// --- Instancias ---
 const grid = new Grid(CONFIG.cols, CONFIG.rows);
 const player = new Player(grid);
 const camera = new Camera(player, 0, -150);
 initInput(player);
 const hud = new HUD('hud');
+
+// --- HUD CONFIGURACIÓN ---
+hud.setScale(1.2);
+hud.setOffset(0, -50);
+
+const HUD_POS = {
+  btnPersonas: { x: 15, y: 110, scale: 0.2 },
+  btnConstruccion: { x: 70, y: 105, scale: 0.2 },
+  btnObjetos: { x: 105, y: 70, scale: 0.2 },
+  btnOpciones: { x: 520, y: 5, scale: 0.15 },
+  btnScreenshot: { x: 520, y: 80, scale: 0.2 },
+  btnAyuda: { x: 520, y: 40, scale: 0.15 },
+  btnCamara: { x: 165, y: 15, scale: 0.3 },
+  dial: { x: 0, y: -8, scale: .18},
+  panel: { x: 232, y: -3, scale: .2 },
+  pj: { x: 147, y: 68, scale: .19 },
+  smallpanel: { x: 0, y: 0, scale: 0.1 },
+  layer: { x: 0, y: 30, scale: 0.18 },
+  ball: { x: 40, y: 40, scale: .18},
+};
+
+// Visuales no presionables
+hud.addButton({ id: 'dial', image: 'data/hud/dial.png', pressable: false, ...HUD_POS.dial });
+hud.addButton({ id: 'panel', image: 'data/hud/panel.png', pressable: false, ...HUD_POS.panel });
+hud.addButton({ id: 'pj', image: 'data/hud/pj.png', pressable: false, ...HUD_POS.pj });
+hud.addButton({ id: 'smallpanel', image: 'data/hud/smallpanel.png', pressable: false, ...HUD_POS.smallpanel });
+
+// Botones presionables
+
+hud.addButton({
+  id: 'btnPersonas',
+  image: 'data/hud/btn_personas.png',
+  pressable: true,
+  tooltip: 'Personas',
+  ...HUD_POS.btnPersonas,
+  action: () => console.log('Abrir menú Personas')
+});
+hud.addButton({
+  id: 'btnOpciones',
+  image: 'data/hud/btn_opciones.png',
+  pressable: true,
+  tooltip: 'Opciones',
+  ...HUD_POS.btnOpciones,
+  action: () => console.log('Abrir opciones')
+});
+
+hud.addButton({
+  id: 'btnConstruccion',
+  image: 'data/hud/btn_construccion.png',
+  pressable: true,
+  tooltip: 'Construcción',
+  ...HUD_POS.btnConstruccion,
+  action: () => {
+    // Alternar entre modo sprite y cámara
+    const nuevoModo = hud.isCameraMode() ? 'sprite' : 'camera';
+    hud.setMode(nuevoModo);
+    console.log(`Modo cambiado a: ${nuevoModo}`);
+  }
+});
+
+hud.addButton({
+  id: 'btnObjetos',
+  image: 'data/hud/btn_objetos.png',
+  pressable: true,
+  tooltip: 'Objetos',
+  ...HUD_POS.btnObjetos,
+  action: () => console.log('Ver objetos')
+});
+hud.addButton({
+  id: 'btnScreenshot',
+  image: 'data/hud/btn_screenshot.png',
+  pressable: true,
+  tooltip: 'Captura de pantalla',
+  ...HUD_POS.btnScreenshot,
+  action: () => console.log('Tomar screenshot')
+});
+hud.addButton({
+  id: 'btnAyuda',
+  image: 'data/hud/btn_ayuda.png',
+  pressable: true,
+  tooltip: 'Ayuda',
+  ...HUD_POS.btnAyuda,
+  action: () => console.log('Mostrar ayuda')
+});
+
+hud.addButton({ id: 'ball', image: 'data/hud/ball.png', pressable: false, ...HUD_POS.ball });
+// Botón Cámara
+hud.addButton({
+  id: 'btnCamara',
+  image: 'data/hud/btn_camara.png',
+  pressable: true,
+  tooltip: 'Modo cámara',
+  ...HUD_POS.btnCamara,
+  action: () => {
+    // Alternar el bloqueo de cámara
+    hud.cameraLocked = !hud.cameraLocked;
+    hud.lockCheckbox.checked = hud.cameraLocked;
+    console.log(`Bloqueo de cámara: ${hud.cameraLocked ? 'Activado' : 'Desactivado'}`);
+  }
+});
 
 // Fondo opcional
 const bgImage = new Image();
