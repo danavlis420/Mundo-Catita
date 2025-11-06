@@ -19,8 +19,6 @@ export class HUD {
     this.initHUD();
     this.loadSpritesJSON();
     window.addEventListener('resize', () => this.updateHUDLayout());
-    new ResizeObserver(() => this.updateHUDLayout()).observe(document.querySelector('canvas'));
-
   }
 
   // --- Inicialización general ---
@@ -81,37 +79,17 @@ export class HUD {
   }
 
   // --- Enganchar HUD al canvas ---
-  // --- Enganchar HUD al canvas ---
-attachHUDToCanvas(canvas) {
-  const syncHUD = () => {
-    const rect = canvas.getBoundingClientRect();
-    this.canvasRect = rect;
-
-    // Mantiene el HUD dentro del área visible del canvas
-    const hudX = Math.min(
-      Math.max(rect.left + this.offsetX, rect.left),
-      rect.right - this.hudRoot.offsetWidth
-    );
-    const hudY = Math.min(
-      Math.max(rect.bottom - this.offsetY - this.hudRoot.offsetHeight, rect.top),
-      rect.bottom - this.hudRoot.offsetHeight
-    );
-
-    Object.assign(this.hudRoot.style, {
-      position: 'absolute',
-      left: `${hudX}px`,
-      top: `${hudY}px`,
-      zIndex: 1000,
-      transform: `scale(${this.scale})`,
-      transformOrigin: 'bottom left',
-      pointerEvents: 'none'
-    });
-  };
-
-  syncHUD();
-  window.addEventListener('resize', syncHUD);
-}
-
+  attachHUDToCanvas(canvas) {
+    const syncHUD = () => {
+      const rect = canvas.getBoundingClientRect();
+      this.hudRoot.style.left = `${rect.left}px`;
+      this.hudRoot.style.bottom = `${window.innerHeight - rect.bottom}px`;
+      const scaleX = rect.width / window.innerWidth;
+      this.setScale(scaleX);
+    };
+    syncHUD();
+    window.addEventListener('resize', syncHUD);
+  }
 
   // --- Controles internos ---
   initModeControls() {
@@ -157,40 +135,19 @@ attachHUDToCanvas(canvas) {
   }
 
   // --- Layout ---
-updateHUDLayout() {
-  const canvas = document.querySelector('canvas');
-  if (!canvas) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = rect.width / canvas.width;
-  const scaleY = rect.height / canvas.height;
-  const pixelScale = Math.min(scaleX, scaleY);
-
-  // Tamaño base
-  const naturalW = this.bgImg.naturalWidth || 1;
+  updateHUDLayout() {
+  const maxHeight = window.innerHeight * this.maxHeightRatio;
   const naturalH = this.bgImg.naturalHeight || 1;
+  const naturalW = this.bgImg.naturalWidth || 1;
   const aspect = naturalW / naturalH;
-  const maxHeight = rect.height * this.maxHeightRatio;
-  const scaledH = Math.min(naturalH * this.scale * pixelScale, maxHeight);
+  const scaledH = Math.min(naturalH * this.scale, maxHeight);
   const scaledW = scaledH * aspect;
-
-  // Posición relativa dentro del canvas
-  const hudX = rect.left + this.offsetX * pixelScale;
-  const hudY = rect.bottom - this.offsetY * pixelScale;
-
-  Object.assign(this.hudRoot.style, {
-    position: 'absolute',
-    left: `${hudX}px`,
-    top: `${hudY - scaledH}px`,
-    transform: `scale(${pixelScale})`,
-    transformOrigin: 'bottom left',
-    pointerEvents: 'none',
-    zIndex: 1000
-  });
 
   this.bgImg.style.width = `${scaledW}px`;
   this.bgImg.style.height = `${scaledH}px`;
+  this.hudRoot.style.transform = `translate(${this.offsetX}px, -${this.offsetY}px) scale(${this.scale})`;
 
+  // 🧩 Reposicionar botones proporcionalmente
   this.buttons.forEach(btn => {
     const bx = btn._base.x * (scaledW / naturalW);
     const by = btn._base.y * (scaledH / naturalH);
@@ -202,10 +159,6 @@ updateHUDLayout() {
     });
   });
 }
-
-
-
-
 
 
   // --- Offset y Escala ---

@@ -3,12 +3,10 @@
 =================================================== */
 .hud-container {
   position: absolute;
-  pointer-events: auto;
-  user-select: none;
+  bottom: 0;
+  left: 0;
   transform-origin: bottom left;
-  overflow: visible;
 }
-
 
 
 .hud-button {
