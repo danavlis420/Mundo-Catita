@@ -19,22 +19,25 @@ const hud = new HUD('hud');
 hud.attachHUDToCanvas(document.getElementById('game-canvas'));
 // --- HUD CONFIGURACIÓN ---
 hud.setScale(1.2);
-hud.setOffset(0, 0);
+hud.setOffset(-260, -68);
 
 const HUD_POS = {
-  btnPersonas: { x: 15, y: 110, scale: 1 },
-  btnConstruccion: { x: 70, y: 105, scale: 1 },
-  btnObjetos: { x: 105, y: 70, scale: 1 },
-  btnOpciones: { x: 520, y: 5, scale: 1 },
-  btnScreenshot: { x: 520, y: 80, scale: 1 },
-  btnAyuda: { x: 520, y: 40, scale: 1 },
-  btnCamara: { x: 165, y: 15, scale: 1 },
-  dial: { x: 0, y: -8, scale: 1},
-  panel: { x: 232, y: -3, scale: 1 },
+  
+  dial: { x: 0, y: 0, scale: 1},
+  panel: { x: 1230, y: 0, scale: 1 },
   pj: { x: 147, y: 68, scale: 1 },
   smallpanel: { x: 0, y: 0, scale: 1 },
+  ball: { x: 240, y: 240, scale: 1},
+
+  //botones
   layer: { x: 0, y: 30, scale: 1 },
-  ball: { x: 40, y: 40, scale: 1},
+  btnPersonas: { x: 80, y: 580, scale: 1 },
+  btnConstruccion: { x: 70, y: 105, scale: 1 },
+  btnObjetos: { x: 105, y: 70, scale: 1 },
+  btnAyuda: { x: 2650, y: 380, scale: .9 },
+  btnOpciones: { x: 2650, y: 180, scale: .9 },
+  btnScreenshot: { x: 2650, y: 40, scale: .9 },
+  btnCamara: { x: 165, y: 15, scale: 1 },
 };
 
 // Visuales no presionables

@@ -1,10 +1,11 @@
 ## Anotar siguientes pasos del proyecto
 
-- arreglar alineacion de sprites
-- agregar zoom con rueda
-- agregar toogle de grilla
-- crear sprites
-- crear personaje y animar
+- AJUSTAR HUD: tooltips, botones, escalado correcto. toggle de grilla
+- AGREGAR PERSONAJE
+- CONSTRUIR MENÚ
+- CARTELES Y BOTONES
+- ESCENARIOS
+- importar assets
 
 ## Variables configurables (en script.js)
 
