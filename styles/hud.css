@@ -1,3 +1,6 @@
+/* ===================================================
+   HUD visual y botones
+=================================================== */
 .hud-container {
   position: fixed;
   bottom: 0;
@@ -20,18 +23,23 @@
   cursor: pointer;
 }
 
+/* ===================================================
+   Tooltip de botones HUD
+=================================================== */
 .hud-button .hud-tooltip {
   position: absolute;
   bottom: 70px;
   left: 0;
-  background: rgba(0,0,0,0.8);
-  color: white;
+  background: var(--prompt-fill);
+  color: var(--prompt-txt);
+  border: 1px solid var(--prompt-border);
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 4px;
   opacity: 0;
-  transition: opacity 0.2s;
   pointer-events: none;
+  transition: opacity 0.2s;
+  font-family: "sims-regular";
 }
 
 .hud-button:hover .hud-tooltip {

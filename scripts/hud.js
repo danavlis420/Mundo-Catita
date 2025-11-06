@@ -2,12 +2,10 @@
 export class HUD {
   constructor(containerId = 'hud') {
     this.container = document.getElementById(containerId);
-
-    // --- Configuración general ---
     this.offsetX = 0;
     this.offsetY = 0;
     this.scale = 1.0;
-    this.maxHeightRatio = 0.25; // Máx 1/4 del alto de ventana
+    this.maxHeightRatio = 0.25;
 
     this.backgroundPath = 'data/hud/hud_bg.png';
     this.buttons = [];
@@ -20,13 +18,11 @@ export class HUD {
 
     this.initHUD();
     this.loadSpritesJSON();
-
     window.addEventListener('resize', () => this.updateHUDLayout());
   }
 
   // --- Inicialización general del HUD ---
   initHUD() {
-    // Contenedor raíz
     this.hudRoot = document.createElement('div');
     this.hudRoot.classList.add('hud-root');
     Object.assign(this.hudRoot.style, {
@@ -42,7 +38,6 @@ export class HUD {
     });
     this.container.appendChild(this.hudRoot);
 
-    // Fondo
     this.bgImg = document.createElement('img');
     this.bgImg.src = this.backgroundPath;
     this.bgImg.draggable = false;
@@ -55,7 +50,6 @@ export class HUD {
     this.bgImg.onload = () => this.updateHUDLayout();
     this.hudRoot.appendChild(this.bgImg);
 
-    // Contenedor de botones
     this.buttonContainer = document.createElement('div');
     Object.assign(this.buttonContainer.style, {
       position: 'absolute',
@@ -65,7 +59,6 @@ export class HUD {
     });
     this.hudRoot.appendChild(this.buttonContainer);
 
-    // Controles internos
     this.uiContainer = document.createElement('div');
     Object.assign(this.uiContainer.style, {
       position: 'absolute',
@@ -78,12 +71,15 @@ export class HUD {
     });
     this.hudRoot.appendChild(this.uiContainer);
 
+    this.tooltip = document.createElement('div');
+    this.tooltip.className = 'tooltip';
+    document.body.appendChild(this.tooltip);
+
     this.initModeControls();
   }
 
   // --- Controles internos ---
   initModeControls() {
-    // Botón de modo
     this.modeBtn = document.createElement('button');
     this.modeBtn.textContent = 'Modo: Cámara';
     this.modeBtn.classList.add('hud-btn');
@@ -92,7 +88,6 @@ export class HUD {
       this.setMode(this.mode === 'camera' ? 'sprite' : 'camera');
     });
 
-    // Checkbox de bloqueo de cámara
     this.lockCheckbox = document.createElement('input');
     this.lockCheckbox.type = 'checkbox';
     this.lockCheckbox.checked = true;
@@ -104,7 +99,6 @@ export class HUD {
       this.cameraLocked = this.lockCheckbox.checked;
     });
 
-    // Selector de categoría
     this.categorySelect = document.createElement('select');
     ['floor', 'wall', 'object'].forEach(c => {
       const opt = document.createElement('option');
@@ -118,7 +112,6 @@ export class HUD {
       this.updateSpriteDropdown();
     });
 
-    // Dropdown de sprites
     this.spriteDropdown = document.createElement('select');
     this.uiContainer.appendChild(this.spriteDropdown);
     this.spriteDropdown.addEventListener('change', e => {
@@ -128,7 +121,7 @@ export class HUD {
     this.updateHUDVisibility();
   }
 
-  // --- Layout y escala ---
+  // --- Layout ---
   updateHUDLayout() {
     const maxHeight = window.innerHeight * this.maxHeightRatio;
     const naturalH = this.bgImg.naturalHeight || 1;
@@ -142,19 +135,18 @@ export class HUD {
     this.hudRoot.style.transform = `translate(${this.offsetX}px, -${this.offsetY}px) scale(${this.scale})`;
   }
 
-  // --- Modificadores de posición/escala ---
+  // --- Posición/escala ---
   setOffset(x, y) {
     this.offsetX = x;
     this.offsetY = y;
     this.updateHUDLayout();
   }
-
   setScale(scale) {
     this.scale = scale;
     this.updateHUDLayout();
   }
 
-  // --- Botones modulares ---
+  // --- Botones ---
   addButton({ id, x = 0, y = 0, pressable = true, image, imageHover, action, scale = 1.0, tooltip }) {
     const btn = document.createElement('img');
     btn.id = id || `hudBtn_${this.buttons.length}`;
@@ -177,13 +169,24 @@ export class HUD {
     }
 
     if (pressable && action) btn.addEventListener('click', () => action());
-    if (tooltip) btn.title = tooltip;
+
+    // Tooltip
+    if (tooltip) {
+      btn.title = tooltip;
+      btn.addEventListener('mouseenter', e => {
+        this.tooltip.textContent = btn.title;
+        this.tooltip.style.left = e.pageX + 'px';
+        this.tooltip.style.top = (e.pageY - 30) + 'px';
+        this.tooltip.classList.add('show');
+      });
+      btn.addEventListener('mouseleave', () => this.tooltip.classList.remove('show'));
+    }
 
     this.buttonContainer.appendChild(btn);
     this.buttons.push(btn);
   }
 
-  // --- Control de modo ---
+  // --- Modo ---
   setMode(mode) {
     this.mode = mode;
     this.modeBtn.textContent = mode === 'camera' ? 'Modo: Cámara' : 'Modo: Sprite';
@@ -202,10 +205,6 @@ export class HUD {
       this.updateSpriteDropdown();
     }
   }
-
-  isCameraMode() { return this.mode === 'camera'; }
-  isCameraLocked() { return this.cameraLocked; }
-  getSelectedSprite() { return this.selectedSprite; }
 
   // --- Sprites ---
   loadSpritesJSON() {
@@ -245,11 +244,19 @@ export class HUD {
     this.selectedSprite = this.spriteDropdown.value || null;
   }
 
-  isSpriteLoaded(path) {
-    return path && this.sprites[path] && this.sprites[path].loaded;
+  isSpriteLoaded(path) { return path && this.sprites[path] && this.sprites[path].loaded; }
+  getSpriteData(path) { return this.sprites[path] || null; }
+
+  // --- 🔧 Métodos auxiliares usados por main.js ---
+  isCameraMode() {
+    return this.mode === 'camera';
   }
 
-  getSpriteData(path) {
-    return this.sprites[path] || null;
+  isCameraLocked() {
+    return this.cameraLocked;
+  }
+
+  getSelectedSprite() {
+    return this.selectedSprite;
   }
 }
