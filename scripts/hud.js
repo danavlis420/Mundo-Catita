@@ -21,7 +21,7 @@ export class HUD {
     window.addEventListener('resize', () => this.updateHUDLayout());
   }
 
-  // --- Inicialización general del HUD ---
+  // --- Inicialización general ---
   initHUD() {
     this.hudRoot = document.createElement('div');
     this.hudRoot.classList.add('hud-root');
@@ -78,6 +78,19 @@ export class HUD {
     this.initModeControls();
   }
 
+  // --- Enganchar HUD al canvas ---
+  attachHUDToCanvas(canvas) {
+    const syncHUD = () => {
+      const rect = canvas.getBoundingClientRect();
+      this.hudRoot.style.left = `${rect.left}px`;
+      this.hudRoot.style.bottom = `${window.innerHeight - rect.bottom}px`;
+      const scaleX = rect.width / window.innerWidth;
+      this.setScale(scaleX);
+    };
+    syncHUD();
+    window.addEventListener('resize', syncHUD);
+  }
+
   // --- Controles internos ---
   initModeControls() {
     this.modeBtn = document.createElement('button');
@@ -123,19 +136,32 @@ export class HUD {
 
   // --- Layout ---
   updateHUDLayout() {
-    const maxHeight = window.innerHeight * this.maxHeightRatio;
-    const naturalH = this.bgImg.naturalHeight || 1;
-    const naturalW = this.bgImg.naturalWidth || 1;
-    const aspect = naturalW / naturalH;
-    const scaledH = Math.min(naturalH * this.scale, maxHeight);
-    const scaledW = scaledH * aspect;
+  const maxHeight = window.innerHeight * this.maxHeightRatio;
+  const naturalH = this.bgImg.naturalHeight || 1;
+  const naturalW = this.bgImg.naturalWidth || 1;
+  const aspect = naturalW / naturalH;
+  const scaledH = Math.min(naturalH * this.scale, maxHeight);
+  const scaledW = scaledH * aspect;
 
-    this.bgImg.style.width = `${scaledW}px`;
-    this.bgImg.style.height = `${scaledH}px`;
-    this.hudRoot.style.transform = `translate(${this.offsetX}px, -${this.offsetY}px) scale(${this.scale})`;
-  }
+  this.bgImg.style.width = `${scaledW}px`;
+  this.bgImg.style.height = `${scaledH}px`;
+  this.hudRoot.style.transform = `translate(${this.offsetX}px, -${this.offsetY}px) scale(${this.scale})`;
 
-  // --- Posición/escala ---
+  // 🧩 Reposicionar botones proporcionalmente
+  this.buttons.forEach(btn => {
+    const bx = btn._base.x * (scaledW / naturalW);
+    const by = btn._base.y * (scaledH / naturalH);
+    const bscale = btn._base.scale * (scaledH / naturalH);
+    Object.assign(btn.style, {
+      left: `${bx}px`,
+      bottom: `${by}px`,
+      transform: `scale(${bscale})`
+    });
+  });
+}
+
+
+  // --- Offset y Escala ---
   setOffset(x, y) {
     this.offsetX = x;
     this.offsetY = y;
@@ -148,43 +174,36 @@ export class HUD {
 
   // --- Botones ---
   addButton({ id, x = 0, y = 0, pressable = true, image, imageHover, action, scale = 1.0, tooltip }) {
-    const btn = document.createElement('img');
-    btn.id = id || `hudBtn_${this.buttons.length}`;
-    btn.src = image;
-    btn.draggable = false;
+  const btn = document.createElement('img');
+  btn.id = id || `hudBtn_${this.buttons.length}`;
+  btn.src = image;
+  btn.draggable = false;
 
-    Object.assign(btn.style, {
-      position: 'absolute',
-      left: `${x}px`,
-      bottom: `${y}px`,
-      transform: `scale(${scale})`,
-      transformOrigin: 'bottom left',
-      cursor: pressable ? 'pointer' : 'default',
-      pointerEvents: 'auto'
-    });
+  // Guardar datos base relativos
+  btn._base = { x, y, scale };
 
-    if (pressable && imageHover) {
-      btn.addEventListener('mouseenter', () => (btn.src = imageHover));
-      btn.addEventListener('mouseleave', () => (btn.src = image));
-    }
+  Object.assign(btn.style, {
+    position: 'absolute',
+    transformOrigin: 'bottom left',
+    cursor: pressable ? 'pointer' : 'default',
+    pointerEvents: 'auto'
+  });
 
-    if (pressable && action) btn.addEventListener('click', () => action());
-
-    // Tooltip
-    if (tooltip) {
-      btn.title = tooltip;
-      btn.addEventListener('mouseenter', e => {
-        this.tooltip.textContent = btn.title;
-        this.tooltip.style.left = e.pageX + 'px';
-        this.tooltip.style.top = (e.pageY - 30) + 'px';
-        this.tooltip.classList.add('show');
-      });
-      btn.addEventListener('mouseleave', () => this.tooltip.classList.remove('show'));
-    }
-
-    this.buttonContainer.appendChild(btn);
-    this.buttons.push(btn);
+  if (pressable && imageHover) {
+    btn.addEventListener('mouseenter', () => (btn.src = imageHover));
+    btn.addEventListener('mouseleave', () => (btn.src = image));
   }
+
+  if (pressable && action) btn.addEventListener('click', () => action());
+  if (tooltip) btn.title = tooltip;
+
+  this.buttonContainer.appendChild(btn);
+  this.buttons.push(btn);
+
+  // Actualizar layout después de agregar
+  this.updateHUDLayout();
+}
+
 
   // --- Modo ---
   setMode(mode) {
@@ -247,16 +266,8 @@ export class HUD {
   isSpriteLoaded(path) { return path && this.sprites[path] && this.sprites[path].loaded; }
   getSpriteData(path) { return this.sprites[path] || null; }
 
-  // --- 🔧 Métodos auxiliares usados por main.js ---
-  isCameraMode() {
-    return this.mode === 'camera';
-  }
-
-  isCameraLocked() {
-    return this.cameraLocked;
-  }
-
-  getSelectedSprite() {
-    return this.selectedSprite;
-  }
+  // --- Métodos usados por main.js ---
+  isCameraMode() { return this.mode === 'camera'; }
+  isCameraLocked() { return this.cameraLocked; }
+  getSelectedSprite() { return this.selectedSprite; }
 }
