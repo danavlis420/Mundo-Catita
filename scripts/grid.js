@@ -1,19 +1,44 @@
+// scripts/grid.js
+// Sistema de grilla isométrica para Mundo Catita
+// Corrige alineación, altura 3D y proyección consistente en todas las resoluciones.
+
 import { CONFIG } from './config.js';
 
 export class Grid {
-  constructor(cols = CONFIG.cols, rows = CONFIG.rows, tileW = CONFIG.tileWidth, tileH = CONFIG.tileHeight) {
+  constructor(cols = CONFIG.cols, rows = CONFIG.rows, sprites = []) {
     this.cols = cols;
     this.rows = rows;
-    this.tileW = tileW;
-    this.tileH = tileH;
-    // Cada celda ahora es un objeto con posibles capas
+    this.tileW = CONFIG.tileWidth;
+    this.tileH = CONFIG.tileHeight;
+
+    // Cada celda puede tener varias capas (floor, wall, object)
     this.tiles = Array.from({ length: rows }, () =>
       Array.from({ length: cols }, () => ({ floor: null, wall: null, object: null }))
     );
+
+    // Diccionario rápido por nombre
+    this.spriteMap = {};
+    if (Array.isArray(sprites)) {
+      sprites.forEach(s => {
+        this.spriteMap[s.name] = s;
+        // Precargar imágenes
+        const img = new Image();
+        img.src = s.path;
+        s.img = img;
+        s.loaded = false;
+        img.onload = () => (s.loaded = true);
+      });
+    }
   }
 
+  // -------------------------------------------------------------------------
+  // Conversión de coordenadas
+  // -------------------------------------------------------------------------
   tileToScreen(x, y) {
-    return { x: (x - y) * (this.tileW / 2), y: (x + y) * (this.tileH / 2) };
+    return {
+      x: (x - y) * (this.tileW / 2),
+      y: (x + y) * (this.tileH / 2)
+    };
   }
 
   screenToTile(sx, sy) {
@@ -25,6 +50,9 @@ export class Grid {
     return { x: tx, y: ty };
   }
 
+  // -------------------------------------------------------------------------
+  // Gestión de celdas
+  // -------------------------------------------------------------------------
   setTileSprite(x, y, sprite) {
     if (!sprite || !sprite.category) return;
     this.tiles[y][x][sprite.category] = sprite;
@@ -35,16 +63,24 @@ export class Grid {
     else this.tiles[y][x] = { floor: null, wall: null, object: null };
   }
 
+  // -------------------------------------------------------------------------
+  // Dibujo de la grilla y sus capas
+  // -------------------------------------------------------------------------
   draw(ctx, camera) {
     ctx.save();
-    ctx.translate(ctx.canvas.width / 2 - camera.x, ctx.canvas.height / 4 - camera.y);
+
+    // Centrar en pantalla con desplazamiento de cámara
+    ctx.translate(
+      ctx.canvas.width / (2 * window.devicePixelRatio) - camera.x,
+      ctx.canvas.height / (4 * window.devicePixelRatio) - camera.y
+    );
 
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         const p = this.tileToScreen(x, y);
         const cell = this.tiles[y][x];
 
-        // Dibujar grid base
+        // Dibujar grilla base tenue (opcional)
         if (!cell.floor && !cell.wall && !cell.object) {
           ctx.strokeStyle = 'rgba(255,255,255,0.05)';
           ctx.beginPath();
@@ -56,22 +92,37 @@ export class Grid {
           ctx.stroke();
         }
 
-        // Dibujar capas en orden: floor → wall → object
+        // Capas en orden correcto: floor → wall → object
         ['floor', 'wall', 'object'].forEach(layer => {
           const tile = cell[layer];
           if (tile && tile.img && tile.loaded) {
-            ctx.drawImage(
-              tile.img,
-              p.x - this.tileW / 2,
-              p.y - this.tileH * (tile.height - 1),
-              this.tileW * tile.width,
-              this.tileH * tile.height
-            );
+            this.drawSprite(ctx, tile, p);
           }
         });
       }
     }
 
     ctx.restore();
+  }
+
+  // -------------------------------------------------------------------------
+  // Dibujo de sprites con altura 3D y multi-tile
+  // -------------------------------------------------------------------------
+  drawSprite(ctx, sprite, tilePos) {
+    const depth = sprite.depth || 1; // altura vertical
+    const width = sprite.width || 1;  // cuántas celdas ocupa horizontal
+    const height = sprite.height || 1; // cuántas celdas ocupa en planta
+
+    // Ajuste para multi-tile: colocamos la base sobre la esquina inferior-central de la celda
+    const drawX = tilePos.x - (this.tileW * width) / 2;
+    const drawY = tilePos.y - this.tileH * (depth - 1);
+
+    ctx.drawImage(
+      sprite.img,
+      drawX,
+      drawY - this.tileH * (height - 1),
+      this.tileW * width,
+      this.tileH * height
+    );
   }
 }

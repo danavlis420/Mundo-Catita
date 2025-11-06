@@ -85,7 +85,7 @@ export class HUD {
 
   // --- Cargar sprites desde JSON ---
   loadSpritesJSON() {
-    fetch('assets/sprites.json')
+    fetch('data/sprites.json')
       .then(res => res.json())
       .then(data => {
         data.forEach(obj => {
