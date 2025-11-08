@@ -1,231 +1,125 @@
 // scripts/hud.js
 export class HUD {
-  constructor(containerId = 'hud') {
-    this.container = document.getElementById(containerId);
+  constructor(ctx, canvas) {
+    this.ctx = ctx;
+    this.canvas = canvas;
+
+    // Estado general
     this.offsetX = 0;
     this.offsetY = 0;
     this.scale = 1.0;
     this.maxHeightRatio = 0.25;
 
+    // Fondo e interfaz
     this.backgroundPath = 'data/hud/hud_bg.png';
-    this.buttons = [];
+    this.bgImg = new Image();
+    this.bgLoaded = false;
+    this.bgImg.onload = () => (this.bgLoaded = true);
+    this.bgImg.src = this.backgroundPath;
 
+    // Botones y sprites
+    this.buttons = [];
+    this.sprites = {};
+    this.selectedSprite = null;
+
+    // Controles de modo
     this.mode = 'camera';
     this.cameraLocked = true;
     this.selectedCategory = 'floor';
-    this.selectedSprite = null;
-    this.sprites = {};
 
-    this.initHUD();
+    // Entrada del mouse
+    this.mouse = { x: 0, y: 0, pressed: false };
+    this.tooltip = null;
+
+    // Cargar sprites externos
     this.loadSpritesJSON();
-    window.addEventListener('resize', () => this.updateHUDLayout());
+
+    // Eventos
+    canvas.addEventListener('mousemove', e => this.onMouseMove(e));
+    canvas.addEventListener('mousedown', e => this.onMouseDown(e));
+    canvas.addEventListener('mouseup', () => (this.mouse.pressed = false));
+    canvas.addEventListener('mouseleave', () => this.onMouseLeave()); // 🧩 nuevo evento
+
+    // Tooltip HTML estilizable por CSS
+    this.htmlTooltip = document.createElement('div');
+    this.htmlTooltip.className = 'hud-tooltip';
+    this.htmlTooltip.style.position = 'fixed';
+    this.htmlTooltip.style.display = 'none';
+    this.htmlTooltip.style.pointerEvents = 'none';
+    document.body.appendChild(this.htmlTooltip);
   }
 
-  // --- Inicialización general ---
-  initHUD() {
-    this.hudRoot = document.createElement('div');
-    this.hudRoot.classList.add('hud-root');
-    Object.assign(this.hudRoot.style, {
-      position: 'fixed',
-      left: '0',
-      bottom: '0',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'flex-start',
-      justifyContent: 'flex-end',
-      transformOrigin: 'bottom left',
-      pointerEvents: 'none'
-    });
-    this.container.appendChild(this.hudRoot);
-
-    this.bgImg = document.createElement('img');
-    this.bgImg.src = this.backgroundPath;
-    this.bgImg.draggable = false;
-    Object.assign(this.bgImg.style, {
-      objectFit: 'contain',
-      width: 'auto',
-      height: 'auto',
-      pointerEvents: 'none'
-    });
-    this.bgImg.onload = () => this.updateHUDLayout();
-    this.hudRoot.appendChild(this.bgImg);
-
-    this.buttonContainer = document.createElement('div');
-    Object.assign(this.buttonContainer.style, {
-      position: 'absolute',
-      left: '0',
-      bottom: '0',
-      pointerEvents: 'auto'
-    });
-    this.hudRoot.appendChild(this.buttonContainer);
-
-    this.uiContainer = document.createElement('div');
-    Object.assign(this.uiContainer.style, {
-      position: 'absolute',
-      left: '10px',
-      bottom: '10px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '5px',
-      pointerEvents: 'auto'
-    });
-    this.hudRoot.appendChild(this.uiContainer);
-
-    this.tooltip = document.createElement('div');
-    this.tooltip.className = 'tooltip';
-    document.body.appendChild(this.tooltip);
-
-    this.initModeControls();
-  }
-
-  // --- Enganchar HUD al canvas ---
-  attachHUDToCanvas(canvas) {
-    const syncHUD = () => {
-      const rect = canvas.getBoundingClientRect();
-      this.hudRoot.style.left = `${rect.left}px`;
-      this.hudRoot.style.bottom = `${window.innerHeight - rect.bottom}px`;
-      const scaleX = rect.width / window.innerWidth;
-      this.setScale(scaleX);
-    };
-    syncHUD();
-    window.addEventListener('resize', syncHUD);
-  }
-
-  // --- Controles internos ---
-  initModeControls() {
-    this.modeBtn = document.createElement('button');
-    this.modeBtn.textContent = 'Modo: Cámara';
-    this.modeBtn.classList.add('hud-btn');
-    this.uiContainer.appendChild(this.modeBtn);
-    this.modeBtn.addEventListener('click', () => {
-      this.setMode(this.mode === 'camera' ? 'sprite' : 'camera');
-    });
-
-    this.lockCheckbox = document.createElement('input');
-    this.lockCheckbox.type = 'checkbox';
-    this.lockCheckbox.checked = true;
-    this.lockLabel = document.createElement('label');
-    this.lockLabel.textContent = ' Bloquear cámara';
-    this.lockLabel.prepend(this.lockCheckbox);
-    this.uiContainer.appendChild(this.lockLabel);
-    this.lockCheckbox.addEventListener('change', () => {
-      this.cameraLocked = this.lockCheckbox.checked;
-    });
-
-    this.categorySelect = document.createElement('select');
-    ['floor', 'wall', 'object'].forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c.charAt(0).toUpperCase() + c.slice(1);
-      this.categorySelect.appendChild(opt);
-    });
-    this.uiContainer.appendChild(this.categorySelect);
-    this.categorySelect.addEventListener('change', e => {
-      this.selectedCategory = e.target.value;
-      this.updateSpriteDropdown();
-    });
-
-    this.spriteDropdown = document.createElement('select');
-    this.uiContainer.appendChild(this.spriteDropdown);
-    this.spriteDropdown.addEventListener('change', e => {
-      this.selectedSprite = e.target.value;
-    });
-
-    this.updateHUDVisibility();
-  }
-
-  // --- Layout ---
-  updateHUDLayout() {
-  const maxHeight = window.innerHeight * this.maxHeightRatio;
-  const naturalH = this.bgImg.naturalHeight || 1;
-  const naturalW = this.bgImg.naturalWidth || 1;
-  const aspect = naturalW / naturalH;
-  const scaledH = Math.min(naturalH * this.scale, maxHeight);
-  const scaledW = scaledH * aspect;
-
-  this.bgImg.style.width = `${scaledW}px`;
-  this.bgImg.style.height = `${scaledH}px`;
-  this.hudRoot.style.transform = `translate(${this.offsetX}px, -${this.offsetY}px) scale(${this.scale})`;
-
-  // 🧩 Reposicionar botones proporcionalmente
-  this.buttons.forEach(btn => {
-    const bx = btn._base.x * (scaledW / naturalW);
-    const by = btn._base.y * (scaledH / naturalH);
-    const bscale = btn._base.scale * (scaledH / naturalH);
-    Object.assign(btn.style, {
-      left: `${bx}px`,
-      bottom: `${by}px`,
-      transform: `scale(${bscale})`
-    });
-  });
-}
-
-
-  // --- Offset y Escala ---
+  // ------------------------------------------------------------
+  // Escalado y offset
+  // ------------------------------------------------------------
   setOffset(x, y) {
     this.offsetX = x;
     this.offsetY = y;
-    this.updateHUDLayout();
-  }
-  setScale(scale) {
-    this.scale = scale;
-    this.updateHUDLayout();
   }
 
-  // --- Botones ---
-  addButton({ id, x = 0, y = 0, pressable = true, image, imageHover, action, scale = 1.0, tooltip }) {
-  const btn = document.createElement('img');
-  btn.id = id || `hudBtn_${this.buttons.length}`;
-  btn.src = image;
-  btn.draggable = false;
-
-  // Guardar datos base relativos
-  btn._base = { x, y, scale };
-
-  Object.assign(btn.style, {
-    position: 'absolute',
-    transformOrigin: 'bottom left',
-    cursor: pressable ? 'pointer' : 'default',
-    pointerEvents: 'auto'
-  });
-
-  if (pressable && imageHover) {
-    btn.addEventListener('mouseenter', () => (btn.src = imageHover));
-    btn.addEventListener('mouseleave', () => (btn.src = image));
+  setScale(s) {
+    this.scale = s;
   }
 
-  if (pressable && action) btn.addEventListener('click', () => action());
-  if (tooltip) btn.title = tooltip;
-
-  this.buttonContainer.appendChild(btn);
-  this.buttons.push(btn);
-
-  // Actualizar layout después de agregar
-  this.updateHUDLayout();
-}
-
-
-  // --- Modo ---
+  // ------------------------------------------------------------
+  // Modo y visibilidad
+  // ------------------------------------------------------------
   setMode(mode) {
     this.mode = mode;
-    this.modeBtn.textContent = mode === 'camera' ? 'Modo: Cámara' : 'Modo: Sprite';
-    this.updateHUDVisibility();
   }
 
-  updateHUDVisibility() {
-    if (this.mode === 'camera') {
-      this.lockLabel.style.display = 'inline-block';
-      this.categorySelect.style.display = 'none';
-      this.spriteDropdown.style.display = 'none';
-    } else {
-      this.lockLabel.style.display = 'none';
-      this.categorySelect.style.display = 'inline-block';
-      this.spriteDropdown.style.display = 'inline-block';
-      this.updateSpriteDropdown();
-    }
+  toggleMode() {
+    this.mode = this.mode === 'camera' ? 'sprite' : 'camera';
   }
 
-  // --- Sprites ---
+  isCameraMode() {
+    return this.mode === 'camera';
+  }
+
+  isCameraLocked() {
+    return this.cameraLocked;
+  }
+
+  getSelectedSprite() {
+    return this.selectedSprite;
+  }
+
+  // ------------------------------------------------------------
+  // Botones
+  // ------------------------------------------------------------
+  addButton({
+    id, x = 0, y = 0,
+    image,
+    imageHover,
+    toggle = false,
+    toggleImg = null,
+    tooltip = '',
+    action = null,
+    scale = 1.0,
+    pressable = true
+  }) {
+    const img = new Image();
+    const btn = {
+      id: id || `btn_${this.buttons.length}`,
+      x, y, scale,
+      image, imageHover,
+      toggle, toggleImg,
+      tooltip,
+      pressable,
+      active: false,
+      action,
+      img,
+      hover: false,
+      loaded: false
+    };
+    img.onload = () => (btn.loaded = true);
+    img.src = image;
+    this.buttons.push(btn);
+  }
+
+  // ------------------------------------------------------------
+  // Sprites
+  // ------------------------------------------------------------
   loadSpritesJSON() {
     fetch('data/sprites.json')
       .then(res => res.json())
@@ -241,33 +135,125 @@ export class HUD {
             category: obj.category
           };
           img.onload = () => (spriteObj.loaded = true);
-          img.onerror = () => console.warn('No se pudo cargar:', obj.path);
           img.src = obj.path;
           this.sprites[obj.path] = spriteObj;
         });
-        this.updateSpriteDropdown();
       })
       .catch(err => console.error('Error cargando sprites.json:', err));
   }
 
   updateSpriteDropdown() {
-    this.spriteDropdown.innerHTML = '';
-    Object.entries(this.sprites).forEach(([path, data]) => {
-      if (data.category === this.selectedCategory) {
-        const opt = document.createElement('option');
-        opt.value = path;
-        opt.textContent = `${data.name} (${data.width}x${data.height})`;
-        this.spriteDropdown.appendChild(opt);
-      }
-    });
-    this.selectedSprite = this.spriteDropdown.value || null;
+    const options = Object.entries(this.sprites)
+      .filter(([_, d]) => d.category === this.selectedCategory);
+    this.selectedSprite = options.length > 0 ? options[0][0] : null;
   }
 
-  isSpriteLoaded(path) { return path && this.sprites[path] && this.sprites[path].loaded; }
-  getSpriteData(path) { return this.sprites[path] || null; }
+  isSpriteLoaded(path) {
+    return path && this.sprites[path] && this.sprites[path].loaded;
+  }
 
-  // --- Métodos usados por main.js ---
-  isCameraMode() { return this.mode === 'camera'; }
-  isCameraLocked() { return this.cameraLocked; }
-  getSelectedSprite() { return this.selectedSprite; }
+  getSpriteData(path) {
+    return this.sprites[path] || null;
+  }
+
+  // ------------------------------------------------------------
+  // Input
+  // ------------------------------------------------------------
+  getMouseCanvasPos(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const DPR = window.devicePixelRatio || 1;
+    return {
+      x: (e.clientX - rect.left) * (this.canvas.width / rect.width) / DPR,
+      y: (e.clientY - rect.top) * (this.canvas.height / rect.height) / DPR
+    };
+  }
+
+  onMouseMove(e) {
+    const pos = this.getMouseCanvasPos(e);
+    this.mouse.x = pos.x;
+    this.mouse.y = pos.y;
+    this.mouse.hover = false;
+
+    // Verificar si pasa por algún botón
+    const mx = (this.mouse.x - this.offsetX) / this.scale;
+    const my = (this.mouse.y - this.offsetY) / this.scale;
+    let tooltipFound = null;
+
+    for (const b of this.buttons) {
+      if (!b.loaded) continue;
+      const w = b.img.width * b.scale;
+      const h = b.img.height * b.scale;
+      if (mx >= b.x && mx <= b.x + w && my >= b.y && my <= b.y + h) {
+        b.hover = true;
+        this.mouse.hover = true;
+        if (b.tooltip) tooltipFound = b.tooltip;
+      } else {
+        b.hover = false;
+      }
+    }
+
+    this.tooltip = tooltipFound;
+
+    // 🧩 Mostrar / ocultar tooltip HTML
+    if (this.tooltip) {
+      this.htmlTooltip.textContent = this.tooltip;
+      this.htmlTooltip.style.display = 'block';
+      this.htmlTooltip.style.left = `${e.clientX + 12}px`;
+      this.htmlTooltip.style.top = `${e.clientY - 28}px`;
+    } else {
+      this.htmlTooltip.style.display = 'none';
+    }
+  }
+
+  onMouseLeave() {
+    // 🧩 ocultar tooltip al salir del canvas
+    this.tooltip = null;
+    this.htmlTooltip.style.display = 'none';
+    this.buttons.forEach(b => b.hover = false);
+  }
+
+  onMouseDown(e) {
+    this.mouse.pressed = true;
+    const mx = (this.mouse.x - this.offsetX) / this.scale;
+    const my = (this.mouse.y - this.offsetY) / this.scale;
+
+    for (const b of this.buttons) {
+      if (!b.pressable || !b.loaded) continue;
+      const w = b.img.width * b.scale;
+      const h = b.img.height * b.scale;
+      if (mx >= b.x && mx <= b.x + w && my >= b.y && my <= b.y + h) {
+        if (b.toggle) b.active = !b.active;
+        if (b.action) b.action(b.active);
+        break;
+      }
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Dibujo
+  // ------------------------------------------------------------
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.offsetX, this.offsetY);
+    ctx.scale(this.scale, this.scale);
+
+    // Fondo
+    if (this.bgLoaded) ctx.drawImage(this.bgImg, 0, 0);
+
+    // Botones
+    for (const b of this.buttons) {
+      if (!b.loaded) continue;
+      const img = b.hover && b.imageHover ? (b.hoverImg || this.preloadHover(b)) : b.img;
+      ctx.drawImage(img, b.x, b.y, b.img.width * b.scale, b.img.height * b.scale);
+    }
+
+    ctx.restore();
+  }
+
+  preloadHover(b) {
+    const hoverImg = new Image();
+    hoverImg.src = b.imageHover;
+    b.hoverImg = hoverImg;
+    return hoverImg;
+  }
 }

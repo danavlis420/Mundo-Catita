@@ -7,34 +7,36 @@ import { initInput } from './input.js';
 import { HUD } from './hud.js';
 
 const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d', { alpha: false });
-let DPR = window.devicePixelRatio || 1;
+const ctx = canvas.getContext('2d');
+const DPR = window.devicePixelRatio || 1;
+
+// 🔧 Resolución base del juego
+canvas.width = 800;
+canvas.height = 600;
 
 // --- Instancias ---
 const grid = new Grid(CONFIG.cols, CONFIG.rows);
 const player = new Player(grid);
 const camera = new Camera(player, 0, -150);
 initInput(player);
-const hud = new HUD('hud');
-hud.attachHUDToCanvas(document.getElementById('game-canvas'));
-// --- HUD CONFIGURACIÓN ---
-hud.setScale(1.2);
-hud.setOffset(0, 0);
+const hud = new HUD(ctx, canvas);
+hud.setScale(0.18);
+hud.setOffset(-20, 380);
 
 const HUD_POS = {
-  btnPersonas: { x: 15, y: 110, scale: 1 },
-  btnConstruccion: { x: 70, y: 105, scale: 1 },
-  btnObjetos: { x: 105, y: 70, scale: 1 },
-  btnOpciones: { x: 520, y: 5, scale: 1 },
-  btnScreenshot: { x: 520, y: 80, scale: 1 },
-  btnAyuda: { x: 520, y: 40, scale: 1 },
-  btnCamara: { x: 165, y: 15, scale: 1 },
   dial: { x: 0, y: -8, scale: 1},
-  panel: { x: 232, y: -3, scale: 1 },
+  panel: { x: 232, y: -3, scale: 1},
   pj: { x: 147, y: 68, scale: 1 },
   smallpanel: { x: 0, y: 0, scale: 1 },
   layer: { x: 0, y: 30, scale: 1 },
   ball: { x: 40, y: 40, scale: 1},
+  btnPersonas: { x: 15, y: 110, scale: 1 },
+  btnConstruccion: { x: 70, y: 105, scale: 1 },
+  btnObjetos: { x: 550, y: 380, scale: 1 },
+  btnOpciones: { x: 2750, y: 280, scale: 1 },
+  btnScreenshot: { x: 2780, y: 680, scale: 1 },
+  btnAyuda: { x: 2750, y: 440, scale: 1 },
+  btnCamara: { x: 165, y: 15, scale: 1 },
 };
 
 // Visuales no presionables
@@ -130,22 +132,28 @@ let mousePos = null;
 
 // ------------------- 🔧 RESIZE SEGURO DPI-INDEPENDIENTE -------------------
 function resizeCanvas() {
-  DPR = window.devicePixelRatio || 1;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  // ------------------- 🔧 RESIZE ESCALADO GLOBAL -------------------
+const BASE_WIDTH = 800;
+const BASE_HEIGHT = 600;
 
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
-  canvas.width = Math.round(w * DPR);
-  canvas.height = Math.round(h * DPR);
+function resizeCanvas() {
+  const containerWidth = window.innerWidth;
+  const containerHeight = window.innerHeight;
+  const scale = Math.min(
+    containerWidth / BASE_WIDTH,
+    containerHeight / BASE_HEIGHT
+  );
 
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(DPR, DPR);
-
-  const p = grid.tileToScreen(player.x, player.y);
-  camera.x = p.x + camera.offsetX;
-  camera.y = p.y + camera.offsetY;
+  canvas.style.width = `${BASE_WIDTH * scale}px`;
+  canvas.style.height = `${BASE_HEIGHT * scale}px`;
+  canvas.style.transformOrigin = "top left";
+  canvas.style.transform = `scale(${scale})`;
 }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+}
+
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -395,6 +403,7 @@ function loop(ts) {
   }
 
   player.draw(ctx, grid, camera);
+  hud.draw(ctx);
   requestAnimationFrame(loop);
 }
 

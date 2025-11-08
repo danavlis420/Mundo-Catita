@@ -1,10 +1,12 @@
 ## Anotar siguientes pasos del proyecto
 
-- arreglar alineacion de sprites
+- resolver resolucion
 - agregar zoom con rueda
 - agregar toogle de grilla
+- inicio / menús
 - crear sprites
-- crear personaje y animar
+- crear personaje
+- ESCENAS
 
 ## Variables configurables (en script.js)
 
