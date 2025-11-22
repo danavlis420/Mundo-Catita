@@ -1,10 +1,10 @@
 ## Anotar siguientes pasos del proyecto
 
--Recuperar ZOOM
-- inicio / menús
-- crear sprites
-- crear personaje
-- ESCENAS
+- Modo del HUD
+- Personaje (móvil/estático)
+- Diálogo y cambio de cámara
+- Escenarios, cargar, programar script y triggers
+- Overlay de transición entre escenarios
 
 ## Variables configurables (en script.js)
 
