@@ -1,20 +1,23 @@
 // scripts/input.js
-export function initInput(player, camera, hud) {
-  // Movimiento
+// Recibimos grid y fpsText para controlarlos
+export function initInput(player, camera, hud, grid, fpsText) {
+  
   window.addEventListener('keydown', (e) => {
     player.handleKeyDown(e.key);
     
-    // TECLA R: REESTABLECER CÁMARA
-    if (e.key.toLowerCase() === 'r') {
-      console.log("🔄 Reset: Zoom 0, Centrar y Bloquear.");
-      
-      // 1. Resetear variables de cámara (Zoom y activar forceSnap)
+    const k = e.key.toLowerCase();
+
+    // R: Reset Cámara
+    if (k === 'r') {
       camera.reset(); 
-      
-      // 2. Forzar bloqueo en el HUD si estaba desbloqueado
-      // (Si ya estaba bloqueado, no hacemos nada para no desbloquearlo)
-      if (!hud.isCameraLocked()) {
-        hud.toggleCameraLock(); 
+      if (!hud.isCameraLocked()) hud.toggleCameraLock(); 
+    }
+
+    // G: Toggle Grilla Interna y FPS
+    if (k === 'g') {
+      const isGridVisible = grid.toggleGrid(); // Retorna true/false
+      if (fpsText) {
+        fpsText.visible = isGridVisible;
       }
     }
   });

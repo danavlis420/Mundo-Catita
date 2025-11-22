@@ -16,7 +16,21 @@ export class Grid {
       }))
     );
 
+    // Separamos los gráficos
+    this.innerGraphics = null;  // Las líneas de los casilleros
+    this.borderGraphics = null; // El recuadro exterior
+    
     this.drawDebugGrid();
+  }
+
+  // --- TOGGLE ---
+  // Retorna el nuevo estado (true/false) para sincronizar con FPS
+  toggleGrid() {
+    if (this.innerGraphics) {
+      this.innerGraphics.visible = !this.innerGraphics.visible;
+      return this.innerGraphics.visible;
+    }
+    return false;
   }
 
   tileToScreen(x, y) {
@@ -48,21 +62,12 @@ export class Grid {
     const sprite = new PIXI.Sprite(texture);
     const p = this.tileToScreen(x, y);
 
-    // --- CORRECCIÓN DE ANCLAJE DINÁMICO ---
-    // Si es piso ('floor'), centramos la imagen en el tile (0.5, 0.5).
-    // Si es pared/objeto, lo anclamos a los pies (0.5, 1.0).
     const isFloor = (cat === 'floor');
     const anchorY = isFloor ? 0.5 : 1.0;
     
     sprite.anchor.set(0.5, anchorY);
-    
     sprite.x = p.x;
     sprite.y = p.y + (this.tileH / 2);
-    
-    // Z-Index:
-    // Usamos la coordenada Y de pantalla para el ordenamiento básico.
-    // Restamos un pequeño valor si es piso para asegurar que quede DEBAJO 
-    // de un objeto que esté en el mismo tile.
     sprite.zIndex = sprite.y + (isFloor ? -1 : 1); 
 
     cell.sprites[cat] = sprite;
@@ -79,21 +84,62 @@ export class Grid {
   }
 
   drawDebugGrid() {
-    const g = new PIXI.Graphics();
-    g.lineStyle(1, 0xFFFFFF, 0.3); 
+    // 1. Grilla Interna (Casilleros)
+    this.innerGraphics = new PIXI.Graphics();
+    this.innerGraphics.lineStyle(1, 0xFFFFFF, 0.1); // Muy sutil
     
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         const p = this.tileToScreen(x, y);
-        
-        g.moveTo(p.x, p.y);
-        g.lineTo(p.x + this.tileW / 2, p.y + this.tileH / 2);
-        g.lineTo(p.x, p.y + this.tileH);
-        g.lineTo(p.x - this.tileW / 2, p.y + this.tileH / 2);
-        g.closePath();
+        this.innerGraphics.moveTo(p.x, p.y);
+        this.innerGraphics.lineTo(p.x + this.tileW / 2, p.y + this.tileH / 2);
+        this.innerGraphics.lineTo(p.x, p.y + this.tileH);
+        this.innerGraphics.lineTo(p.x - this.tileW / 2, p.y + this.tileH / 2);
+        this.innerGraphics.closePath();
       }
     }
-    g.zIndex = -1000; 
-    this.container.addChild(g);
+    this.innerGraphics.zIndex = -1000;
+    this.container.addChild(this.innerGraphics);
+
+    // 2. Borde Exterior (Límites) - Siempre Visible
+    this.borderGraphics = new PIXI.Graphics();
+    this.borderGraphics.lineStyle(1, 0xFFFFFF, 0.1); // Más grueso y visible
+    
+    // Calculamos las 4 esquinas del rombo gigante
+    const top = this.tileToScreen(0, 0);
+    const right = this.tileToScreen(this.cols, 0);
+    const bottom = this.tileToScreen(this.cols, this.rows);
+    const left = this.tileToScreen(0, this.rows);
+
+    this.borderGraphics.moveTo(top.x, top.y);
+    this.borderGraphics.lineTo(right.x, right.y + (this.tileH/2)); // Ajuste visual vértice
+    // Nota: tileToScreen devuelve la esquina superior del tile. 
+    // Para el borde exterior perfecto, trazamos de vértice a vértice.
+    
+    // Redibujamos usando vértices limpios para el contorno total:
+    this.borderGraphics.clear();
+    this.borderGraphics.lineStyle(1, 0xFFFFFF, 0.2);
+    
+    // Vértice Superior (0,0)
+    const vTop = this.tileToScreen(0,0); 
+    // Vértice Derecho (cols, 0) -> La X crece hacia la derecha-abajo en iso
+    // Ajuste: tileToScreen da el top-left del rombo.
+    // El extremo derecho del mapa es tileToScreen(cols-1, 0) + mitad ancho.
+    // Simplificación: Dibujamos un path conectando los extremos exteriores.
+    
+    const pTop = { x: vTop.x, y: vTop.y }; // 0,0
+    const pRight = this.tileToScreen(this.cols, 0); // Fuera del array, marca el límite
+    const pBottom = this.tileToScreen(this.cols, this.rows);
+    const pLeft = this.tileToScreen(0, this.rows);
+
+    // Dibujamos el contorno
+    this.borderGraphics.moveTo(pTop.x, pTop.y);
+    this.borderGraphics.lineTo(pRight.x, pRight.y);
+    this.borderGraphics.lineTo(pBottom.x, pBottom.y);
+    this.borderGraphics.lineTo(pLeft.x, pLeft.y);
+    this.borderGraphics.closePath();
+
+    this.borderGraphics.zIndex = -999; // Apenas encima de la grilla interna
+    this.container.addChild(this.borderGraphics);
   }
 }
