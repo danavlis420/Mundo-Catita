@@ -26,17 +26,11 @@ export class Grid {
     };
   }
 
-  // --- CORRECCIÓN MATEMÁTICA AQUÍ ---
   screenToTile(sx, sy) {
-    // 1. Eliminamos 'adjY'. Usamos la coordenada cruda 'sy'.
-    // 2. Fórmula de inversión isométrica estándar.
     const x = (sx / (this.tileW / 2) + sy / (this.tileH / 2)) / 2;
     const y = (sy / (this.tileH / 2) - sx / (this.tileW / 2)) / 2;
-    
-    // 3. Usamos Math.floor puro (sin +0.5) para detectar el volumen del tile, no el vértice.
     const tx = Math.floor(x);
     const ty = Math.floor(y);
-    
     if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return null;
     return { x: tx, y: ty };
   }
@@ -46,26 +40,30 @@ export class Grid {
     const cell = this.tiles[y][x];
     const cat = spriteData.category;
 
-    if (cell.sprites[cat]) {
-      this.container.removeChild(cell.sprites[cat]);
-    }
+    if (cell.sprites[cat]) this.container.removeChild(cell.sprites[cat]);
 
     cell[cat] = spriteData;
 
     const texture = PIXI.Texture.from(spriteData.path);
     const sprite = new PIXI.Sprite(texture);
-
     const p = this.tileToScreen(x, y);
+
+    // --- CORRECCIÓN DE ANCLAJE DINÁMICO ---
+    // Si es piso ('floor'), centramos la imagen en el tile (0.5, 0.5).
+    // Si es pared/objeto, lo anclamos a los pies (0.5, 1.0).
+    const isFloor = (cat === 'floor');
+    const anchorY = isFloor ? 0.5 : 1.0;
     
-    // ANCLAJE:
-    // (0.5, 1.0) pone los "pies" del sprite en la coordenada Y dada.
-    // Sumamos (this.tileH / 2) para que los pies pisen el CENTRO del rombo, no el vértice superior.
-    sprite.anchor.set(0.5, 1.0);
+    sprite.anchor.set(0.5, anchorY);
+    
     sprite.x = p.x;
     sprite.y = p.y + (this.tileH / 2);
     
-    // Profundidad Z basada en Y
-    sprite.zIndex = sprite.y; 
+    // Z-Index:
+    // Usamos la coordenada Y de pantalla para el ordenamiento básico.
+    // Restamos un pequeño valor si es piso para asegurar que quede DEBAJO 
+    // de un objeto que esté en el mismo tile.
+    sprite.zIndex = sprite.y + (isFloor ? -1 : 1); 
 
     cell.sprites[cat] = sprite;
     this.container.addChild(sprite);
@@ -82,11 +80,12 @@ export class Grid {
 
   drawDebugGrid() {
     const g = new PIXI.Graphics();
-    g.lineStyle(1, 0xFFFFFF, 0.15); 
+    g.lineStyle(1, 0xFFFFFF, 0.3); 
     
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         const p = this.tileToScreen(x, y);
+        
         g.moveTo(p.x, p.y);
         g.lineTo(p.x + this.tileW / 2, p.y + this.tileH / 2);
         g.lineTo(p.x, p.y + this.tileH);
@@ -94,7 +93,6 @@ export class Grid {
         g.closePath();
       }
     }
-    
     g.zIndex = -1000; 
     this.container.addChild(g);
   }

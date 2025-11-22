@@ -1,4 +1,4 @@
-// scripts/Config.js
+// scripts/config.js
 export const CONFIG = {
   cols: 30,
   rows: 30,
@@ -9,8 +9,12 @@ export const CONFIG = {
   playerSpritePath: 'assets/sprites/player.png',
   initialPlayer: { x: 10, y: 10 },
   cameraLag: 0.12,
-  playerSpeed: 5,   // tiles por segundo
-  snapSpeed: 10     // velocidad de snap a grilla
+  playerSpeed: 5,
+  snapSpeed: 10,
+  
+  // --- NUEVA CONFIGURACIÓN DE ZOOM ---
+  zoomStep: 0.25,    // Cuánto aumenta/disminuye la escala por paso (25%)
+  maxZoomSteps: 3    // Cuántos pasos hacia arriba/abajo permitimos
 };
 
 export function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
