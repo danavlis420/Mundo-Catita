@@ -2,27 +2,21 @@
 import { CONFIG } from './config.js';
 
 export class Grid {
-  constructor(cols = CONFIG.cols, rows = CONFIG.rows, sprites = []) {
+  constructor(container, cols = CONFIG.cols, rows = CONFIG.rows) {
+    this.container = container;
     this.cols = cols;
     this.rows = rows;
     this.tileW = CONFIG.tileWidth;
     this.tileH = CONFIG.tileHeight;
 
     this.tiles = Array.from({ length: rows }, () =>
-      Array.from({ length: cols }, () => ({ floor: null, wall: null, object: null }))
+      Array.from({ length: cols }, () => ({ 
+        floor: null, wall: null, object: null,
+        sprites: { floor: null, wall: null, object: null } 
+      }))
     );
 
-    this.spriteMap = {};
-    if (Array.isArray(sprites)) {
-      sprites.forEach(s => {
-        this.spriteMap[s.name] = s;
-        const img = new Image();
-        img.src = s.path;
-        s.img = img;
-        s.loaded = false;
-        img.onload = () => (s.loaded = true);
-      });
-    }
+    this.drawDebugGrid();
   }
 
   tileToScreen(x, y) {
@@ -32,75 +26,76 @@ export class Grid {
     };
   }
 
+  // --- CORRECCIÓN MATEMÁTICA AQUÍ ---
   screenToTile(sx, sy) {
+    // 1. Eliminamos 'adjY'. Usamos la coordenada cruda 'sy'.
+    // 2. Fórmula de inversión isométrica estándar.
     const x = (sx / (this.tileW / 2) + sy / (this.tileH / 2)) / 2;
     const y = (sy / (this.tileH / 2) - sx / (this.tileW / 2)) / 2;
+    
+    // 3. Usamos Math.floor puro (sin +0.5) para detectar el volumen del tile, no el vértice.
     const tx = Math.floor(x);
     const ty = Math.floor(y);
+    
     if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return null;
     return { x: tx, y: ty };
   }
 
-  setTileSprite(x, y, sprite) {
-    if (!sprite || !sprite.category) return;
-    this.tiles[y][x][sprite.category] = sprite;
+  setTileSprite(x, y, spriteData) {
+    if (!spriteData || !spriteData.category) return;
+    const cell = this.tiles[y][x];
+    const cat = spriteData.category;
+
+    if (cell.sprites[cat]) {
+      this.container.removeChild(cell.sprites[cat]);
+    }
+
+    cell[cat] = spriteData;
+
+    const texture = PIXI.Texture.from(spriteData.path);
+    const sprite = new PIXI.Sprite(texture);
+
+    const p = this.tileToScreen(x, y);
+    
+    // ANCLAJE:
+    // (0.5, 1.0) pone los "pies" del sprite en la coordenada Y dada.
+    // Sumamos (this.tileH / 2) para que los pies pisen el CENTRO del rombo, no el vértice superior.
+    sprite.anchor.set(0.5, 1.0);
+    sprite.x = p.x;
+    sprite.y = p.y + (this.tileH / 2);
+    
+    // Profundidad Z basada en Y
+    sprite.zIndex = sprite.y; 
+
+    cell.sprites[cat] = sprite;
+    this.container.addChild(sprite);
   }
 
-  clearTile(x, y, category = null) {
-    if (category) this.tiles[y][x][category] = null;
-    else this.tiles[y][x] = { floor: null, wall: null, object: null };
+  clearTile(x, y, category) {
+    const cell = this.tiles[y][x];
+    if (category && cell.sprites[category]) {
+      this.container.removeChild(cell.sprites[category]);
+      cell.sprites[category] = null;
+      cell[category] = null;
+    }
   }
 
-  draw(ctx, camera) {
-    ctx.save();
-
-    // CORRECCIÓN CRÍTICA:
-    // 1. Eliminado window.devicePixelRatio (ya no es necesario con resolución fija).
-    // 2. Cambiado height / 4 a height / 2 para centrado real.
-    ctx.translate(
-      ctx.canvas.width / 2 - camera.x,
-      ctx.canvas.height / 2 - camera.y
-    );
-
+  drawDebugGrid() {
+    const g = new PIXI.Graphics();
+    g.lineStyle(1, 0xFFFFFF, 0.15); 
+    
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         const p = this.tileToScreen(x, y);
-        const cell = this.tiles[y][x];
-
-        // Grilla tenue
-        if (!cell.floor && !cell.wall && !cell.object) {
-          ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x + this.tileW / 2, p.y + this.tileH / 2);
-          ctx.lineTo(p.x, p.y + this.tileH);
-          ctx.lineTo(p.x - this.tileW / 2, p.y + this.tileH / 2);
-          ctx.closePath();
-          ctx.stroke();
-        }
-
-        ['floor', 'wall', 'object'].forEach(layer => {
-          const tile = cell[layer];
-          if (tile && tile.img && tile.loaded) {
-            this.drawSprite(ctx, tile, p);
-          }
-        });
+        g.moveTo(p.x, p.y);
+        g.lineTo(p.x + this.tileW / 2, p.y + this.tileH / 2);
+        g.lineTo(p.x, p.y + this.tileH);
+        g.lineTo(p.x - this.tileW / 2, p.y + this.tileH / 2);
+        g.closePath();
       }
     }
-
-    ctx.restore();
-  }
-
-  drawSprite(ctx, sprite, tilePos) {
-    const width = sprite.width || 1;
-    const drawX = tilePos.x - (this.tileW * width) / 2;
-    const drawY = tilePos.y - (sprite.img.height - this.tileH); 
-    ctx.drawImage(
-      sprite.img,
-      drawX,
-      drawY,
-      this.tileW * width,
-      sprite.img.height
-    );
+    
+    g.zIndex = -1000; 
+    this.container.addChild(g);
   }
 }
