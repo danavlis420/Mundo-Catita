@@ -1,8 +1,6 @@
 ## Anotar siguientes pasos del proyecto
 
-- resolver resolucion
-- agregar zoom con rueda
-- agregar toogle de grilla
+-Recuperar ZOOM
 - inicio / menús
 - crear sprites
 - crear personaje

@@ -86,7 +86,7 @@ export class Grid {
   drawDebugGrid() {
     // 1. Grilla Interna (Casilleros)
     this.innerGraphics = new PIXI.Graphics();
-    this.innerGraphics.lineStyle(1, 0xFFFFFF, 0.1); // Muy sutil
+    this.innerGraphics.lineStyle(1, 0xFFFFFF, 0.05); // Muy sutil
     
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
@@ -100,10 +100,11 @@ export class Grid {
     }
     this.innerGraphics.zIndex = -1000;
     this.container.addChild(this.innerGraphics);
+    this.innerGraphics.visible = false;
 
     // 2. Borde Exterior (Límites) - Siempre Visible
     this.borderGraphics = new PIXI.Graphics();
-    this.borderGraphics.lineStyle(1, 0xFFFFFF, 0.1); // Más grueso y visible
+    this.borderGraphics.lineStyle(1, 0xFFFFFF, 0.05); // Más grueso y visible
     
     // Calculamos las 4 esquinas del rombo gigante
     const top = this.tileToScreen(0, 0);
@@ -118,7 +119,7 @@ export class Grid {
     
     // Redibujamos usando vértices limpios para el contorno total:
     this.borderGraphics.clear();
-    this.borderGraphics.lineStyle(1, 0xFFFFFF, 0.2);
+    this.borderGraphics.lineStyle(1, 0xFFFFFF, 0.05);
     
     // Vértice Superior (0,0)
     const vTop = this.tileToScreen(0,0); 
