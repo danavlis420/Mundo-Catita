@@ -1,7 +1,4 @@
 // scripts/grid.js
-// Sistema de grilla isométrica para Mundo Catita
-// Corrige alineación, altura 3D y proyección consistente en todas las resoluciones.
-
 import { CONFIG } from './config.js';
 
 export class Grid {
@@ -11,17 +8,14 @@ export class Grid {
     this.tileW = CONFIG.tileWidth;
     this.tileH = CONFIG.tileHeight;
 
-    // Cada celda puede tener varias capas (floor, wall, object)
     this.tiles = Array.from({ length: rows }, () =>
       Array.from({ length: cols }, () => ({ floor: null, wall: null, object: null }))
     );
 
-    // Diccionario rápido por nombre
     this.spriteMap = {};
     if (Array.isArray(sprites)) {
       sprites.forEach(s => {
         this.spriteMap[s.name] = s;
-        // Precargar imágenes
         const img = new Image();
         img.src = s.path;
         s.img = img;
@@ -31,9 +25,6 @@ export class Grid {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Conversión de coordenadas
-  // -------------------------------------------------------------------------
   tileToScreen(x, y) {
     return {
       x: (x - y) * (this.tileW / 2),
@@ -50,9 +41,6 @@ export class Grid {
     return { x: tx, y: ty };
   }
 
-  // -------------------------------------------------------------------------
-  // Gestión de celdas
-  // -------------------------------------------------------------------------
   setTileSprite(x, y, sprite) {
     if (!sprite || !sprite.category) return;
     this.tiles[y][x][sprite.category] = sprite;
@@ -63,16 +51,15 @@ export class Grid {
     else this.tiles[y][x] = { floor: null, wall: null, object: null };
   }
 
-  // -------------------------------------------------------------------------
-  // Dibujo de la grilla y sus capas
-  // -------------------------------------------------------------------------
   draw(ctx, camera) {
     ctx.save();
 
-    // Centrar en pantalla con desplazamiento de cámara
+    // CORRECCIÓN CRÍTICA:
+    // 1. Eliminado window.devicePixelRatio (ya no es necesario con resolución fija).
+    // 2. Cambiado height / 4 a height / 2 para centrado real.
     ctx.translate(
-      ctx.canvas.width / (2 * window.devicePixelRatio) - camera.x,
-      ctx.canvas.height / (4 * window.devicePixelRatio) - camera.y
+      ctx.canvas.width / 2 - camera.x,
+      ctx.canvas.height / 2 - camera.y
     );
 
     for (let y = 0; y < this.rows; y++) {
@@ -80,7 +67,7 @@ export class Grid {
         const p = this.tileToScreen(x, y);
         const cell = this.tiles[y][x];
 
-        // Dibujar grilla base tenue (opcional)
+        // Grilla tenue
         if (!cell.floor && !cell.wall && !cell.object) {
           ctx.strokeStyle = 'rgba(255,255,255,0.05)';
           ctx.beginPath();
@@ -92,7 +79,6 @@ export class Grid {
           ctx.stroke();
         }
 
-        // Capas en orden correcto: floor → wall → object
         ['floor', 'wall', 'object'].forEach(layer => {
           const tile = cell[layer];
           if (tile && tile.img && tile.loaded) {
@@ -105,20 +91,10 @@ export class Grid {
     ctx.restore();
   }
 
-    // -------------------------------------------------------------------------
-  // Dibujo de sprites con altura 3D y multi-tile (sin recortar)
-  // -------------------------------------------------------------------------
   drawSprite(ctx, sprite, tilePos) {
-    const depth = sprite.depth || 1;   // altura conceptual (para z-order)
-    const width = sprite.width || 1;   // cuántas celdas ocupa horizontalmente
-    const height = sprite.height || 1; // cuántas celdas ocupa en planta
-
-    // Colocar la base sobre el tile actual (alineado por centro inferior)
+    const width = sprite.width || 1;
     const drawX = tilePos.x - (this.tileW * width) / 2;
     const drawY = tilePos.y - (sprite.img.height - this.tileH); 
-    // Esto posiciona el pie del sprite exactamente sobre el tile base
-
-    // Dibujar el sprite completo (usando su tamaño real)
     ctx.drawImage(
       sprite.img,
       drawX,
@@ -127,5 +103,4 @@ export class Grid {
       sprite.img.height
     );
   }
-
 }

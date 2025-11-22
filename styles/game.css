@@ -1,7 +1,8 @@
+/* styles/game.css */
 #game-container {
   position: relative;
   width: 100vw;
-  height: 90vh;
+  height: 100vh; /* Ocupamos toda la pantalla para centrar bien */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -10,11 +11,15 @@
 }
 
 #game-canvas {
-  aspect-ratio: 5 / 4;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  /* Las dimensiones se controlan vía JS para mantener el Aspect Ratio */
   display: block;
+  box-shadow: 0 0 10px rgba(182, 162, 255, 0.2); /* Opcional: estética */
+  
+  /* Importante para pixel art / sprites nítidos al escalar */
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .hud-tooltip {
@@ -29,4 +34,5 @@
   transition: opacity 0.1s ease;
   opacity: 0.95;
   z-index: 9999;
+  pointer-events: none; /* Asegura que no bloquee el mouse */
 }

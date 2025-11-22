@@ -8,21 +8,74 @@ import { HUD } from './hud.js';
 
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
-const DPR = window.devicePixelRatio || 1;
 
-// 🔧 Resolución base del juego
-canvas.width = 800;
-canvas.height = 600;
+// ----------------------------------------------------------------------
+// 🔧 CONFIGURACIÓN DE RESOLUCIÓN Y ESCALADO (SOLUCIÓN ROBUSTA)
+// ----------------------------------------------------------------------
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 600;
+const ASPECT_RATIO = GAME_WIDTH / GAME_HEIGHT;
+
+// Fijamos la resolución interna una única vez.
+// El juego "vive" en 800x600. El navegador lo estira.
+canvas.width = GAME_WIDTH;
+canvas.height = GAME_HEIGHT;
+
+function resizeCanvas() {
+  const windowW = window.innerWidth;
+  const windowH = window.innerHeight;
+  
+  // Altura objetivo: 90% del alto de la ventana
+  const targetHeight = windowH * 0.90;
+  const targetWidth = targetHeight * ASPECT_RATIO;
+
+  // Verificamos si el ancho resultante se sale de la pantalla
+  if (targetWidth > windowW) {
+    // Si es muy ancho, limitamos por ancho
+    const newWidth = windowW * 0.95; // Margen pequeño lateral
+    const newHeight = newWidth / ASPECT_RATIO;
+    
+    canvas.style.width = `${newWidth}px`;
+    canvas.style.height = `${newHeight}px`;
+  } else {
+    // Si cabe bien, usamos el cálculo basado en altura
+    canvas.style.width = `${targetWidth}px`;
+    canvas.style.height = `${targetHeight}px`;
+  }
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas(); // Llamada inicial
+
+// ----------------------------------------------------------------------
+// GESTIÓN DE INPUT (CORREGIDA)
+// ----------------------------------------------------------------------
+// Función maestra para traducir coordenadas de pantalla a coordenadas de juego (800x600)
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  
+  // Factor de escala: cuántos píxeles internos hay por cada píxel visual
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
+  };
+}
 
 // --- Instancias ---
 const grid = new Grid(CONFIG.cols, CONFIG.rows);
 const player = new Player(grid);
-const camera = new Camera(player, 0, -150);
+const camera = new Camera(player, 0, -150); // Offset vertical para centrar al jugador visualmente
 initInput(player);
+
+// Pasamos el canvas y ctx al HUD
 const hud = new HUD(ctx, canvas);
 hud.setScale(0.18);
 hud.setOffset(-20, 380);
 
+// --- Configuración HUD (Igual que antes) ---
 const HUD_POS = {
   dial: { x: 0, y: -8, scale: 1},
   panel: { x: 232, y: -3, scale: 1},
@@ -39,14 +92,13 @@ const HUD_POS = {
   btnCamara: { x: 165, y: 15, scale: 1 },
 };
 
-// Visuales no presionables
+// Visuales
 hud.addButton({ id: 'dial', image: 'data/hud/dial.png', pressable: false, ...HUD_POS.dial });
 hud.addButton({ id: 'panel', image: 'data/hud/panel.png', pressable: false, ...HUD_POS.panel });
 hud.addButton({ id: 'pj', image: 'data/hud/pj.png', pressable: false, ...HUD_POS.pj });
 hud.addButton({ id: 'smallpanel', image: 'data/hud/smallpanel.png', pressable: false, ...HUD_POS.smallpanel });
 
-// Botones presionables
-
+// Interactivos
 hud.addButton({
   id: 'btnPersonas',
   image: 'data/hud/btn_personas.png',
@@ -63,7 +115,6 @@ hud.addButton({
   ...HUD_POS.btnOpciones,
   action: () => console.log('Abrir opciones')
 });
-
 hud.addButton({
   id: 'btnConstruccion',
   image: 'data/hud/btn_construccion.png',
@@ -71,13 +122,11 @@ hud.addButton({
   tooltip: 'Construcción',
   ...HUD_POS.btnConstruccion,
   action: () => {
-    // Alternar entre modo sprite y cámara
     const nuevoModo = hud.isCameraMode() ? 'sprite' : 'camera';
     hud.setMode(nuevoModo);
     console.log(`Modo cambiado a: ${nuevoModo}`);
   }
 });
-
 hud.addButton({
   id: 'btnObjetos',
   image: 'data/hud/btn_objetos.png',
@@ -102,9 +151,7 @@ hud.addButton({
   ...HUD_POS.btnAyuda,
   action: () => console.log('Mostrar ayuda')
 });
-
 hud.addButton({ id: 'ball', image: 'data/hud/ball.png', pressable: false, ...HUD_POS.ball });
-// Botón Cámara
 hud.addButton({
   id: 'btnCamara',
   image: 'data/hud/btn_camara.png',
@@ -112,67 +159,28 @@ hud.addButton({
   tooltip: 'Modo cámara',
   ...HUD_POS.btnCamara,
   action: () => {
-    // Alternar el bloqueo de cámara
     hud.cameraLocked = !hud.cameraLocked;
-    hud.lockCheckbox.checked = hud.cameraLocked;
     console.log(`Bloqueo de cámara: ${hud.cameraLocked ? 'Activado' : 'Desactivado'}`);
   }
 });
 
-// Fondo opcional
+// Fondo
 const bgImage = new Image();
 bgImage.src = 'assets/backgrounds/bg.png';
 let bgLoaded = false;
 bgImage.onload = () => (bgLoaded = true);
 
-// Estado del mouse
+// Estado del mouse global
 let isMouseDown = false;
 let mouseButton = 0;
-let mousePos = null;
+let mousePos = { x: 0, y: 0 };
 
-// ------------------- 🔧 RESIZE SEGURO DPI-INDEPENDIENTE -------------------
-function resizeCanvas() {
-  // ------------------- 🔧 RESIZE ESCALADO GLOBAL -------------------
-const BASE_WIDTH = 800;
-const BASE_HEIGHT = 600;
-
-function resizeCanvas() {
-  const containerWidth = window.innerWidth;
-  const containerHeight = window.innerHeight;
-  const scale = Math.min(
-    containerWidth / BASE_WIDTH,
-    containerHeight / BASE_HEIGHT
-  );
-
-  canvas.style.width = `${BASE_WIDTH * scale}px`;
-  canvas.style.height = `${BASE_HEIGHT * scale}px`;
-  canvas.style.transformOrigin = "top left";
-  canvas.style.transform = `scale(${scale})`;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-}
-
-
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-// ------------------- Mouse y Cámara -------------------
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('click', () => canvas.focus());
-
-function getMousePos(e) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: (e.clientX - rect.left) * (canvas.width / rect.width) / DPR,
-    y: (e.clientY - rect.top) * (canvas.height / rect.height) / DPR
-  };
-}
-
+// ------------------- Utils de Tile -------------------
 function getBaseTileUnderCursor(posCanvas) {
-  const localX = posCanvas.x + camera.x - canvas.width / (2 * DPR);
-  const localY = posCanvas.y + camera.y - canvas.height / (4 * DPR);
+  // CORRECCIÓN: Ajustar matemática para coincidir con el offset visual (height/2)
+  const localX = posCanvas.x + camera.x - canvas.width / 2;
+  const localY = posCanvas.y + camera.y - canvas.height / 2; 
+  
   const t = grid.screenToTile(localX, localY);
   if (!t) return null;
   return { x: t.x, y: t.y };
@@ -202,27 +210,43 @@ function placeSpriteAtCursor(posCanvas, button) {
   else if (button === 2) grid.clearTile(baseTile.x, baseTile.y, tileSprite.category);
 }
 
-// ------------------- Eventos de mouse -------------------
+// ------------------- Eventos de mouse (Usando getMousePos corregido) -------------------
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('click', () => canvas.focus());
+
 canvas.addEventListener('mousedown', e => {
   mousePos = getMousePos(e);
   isMouseDown = true;
   mouseButton = e.button;
 
-  if (hud.isCameraMode()) camera.startDrag(mousePos.x, mousePos.y);
-  else placeSpriteAtCursor(mousePos, mouseButton);
+  // IMPORTANTE: El HUD ahora maneja su propio click internamente en hud.js,
+  // pero si queremos bloquear la interacción con el mundo si se hizo click en HUD:
+  // (Requiere que HUD tenga un método 'isHoveringButton', por ahora lo dejamos simple)
+
+  if (hud.isCameraMode()) {
+     camera.startDrag(mousePos.x, mousePos.y);
+  } else {
+     placeSpriteAtCursor(mousePos, mouseButton);
+  }
 });
 
 canvas.addEventListener('mousemove', e => {
   mousePos = getMousePos(e);
+  
   if (!isMouseDown) return;
-  if (hud.isCameraMode()) camera.drag(mousePos.x, mousePos.y);
-  else placeSpriteAtCursor(mousePos, mouseButton);
+  
+  if (hud.isCameraMode()) {
+    camera.drag(mousePos.x, mousePos.y);
+  } else {
+    placeSpriteAtCursor(mousePos, mouseButton);
+  }
 });
 
 canvas.addEventListener('mouseup', () => {
   isMouseDown = false;
   if (hud.isCameraMode()) camera.endDrag();
 });
+
 canvas.addEventListener('mouseleave', () => {
   if (isMouseDown) {
     isMouseDown = false;
@@ -295,6 +319,7 @@ function importWorldFile(file) {
 }
 
 function applyWorldData(data) {
+  // Reconstruir grid
   grid.tiles = Array.from({ length: data.rows || grid.rows }, () =>
     Array.from({ length: data.cols || grid.cols }, () => ({ floor: null, wall: null, object: null }))
   );
@@ -306,6 +331,7 @@ function applyWorldData(data) {
     Object.entries(entry.layers || {}).forEach(([layer, info]) => {
       if (!info.path) return;
       const spriteData = hud.getSpriteData(info.path);
+      // Si el sprite ya está cargado en memoria, usamos su referencia de imagen
       const tileSprite = spriteData
         ? {
             img: spriteData.img,
@@ -349,7 +375,7 @@ window.addEventListener('keydown', e => {
   if (k === 'm') hud.setMode(hud.isCameraMode() ? 'sprite' : 'camera');
 });
 
-// ------------------- Loop principal -------------------
+// ------------------- Loop principal (ACTUALIZADO) -------------------
 let lastTime = performance.now();
 
 function loop(ts) {
@@ -359,6 +385,7 @@ function loop(ts) {
   camera.update(dt, grid, CONFIG.cameraLag, hud.isCameraLocked());
   player.update(dt);
 
+  // Limpiar
   ctx.save();
   ctx.fillStyle = CONFIG.backgroundColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -368,27 +395,29 @@ function loop(ts) {
 
   grid.draw(ctx, camera);
 
-  // ------------------- PREVIEW DE SPRITE -------------------
+  // PREVIEW DE SPRITE (ACTUALIZADO)
   if (hud.mode === 'sprite' && hud.getSelectedSprite() && mousePos) {
     const spritePath = hud.getSelectedSprite();
     const spriteData = hud.getSpriteData(spritePath);
+    
     if (spriteData && spriteData.loaded) {
       const baseTile = getBaseTileUnderCursor(mousePos);
       if (baseTile) {
         const p = grid.tileToScreen(baseTile.x, baseTile.y);
         const depth = spriteData.depth || 1;
         const width = spriteData.width || 1;
-
-        const drawX = p.x - (grid.tileW * width) / 2;
-        const drawY = p.y - grid.tileH * (depth - 1);
-        const spritePixelHeight = grid.tileH * depth;
-
+        
         ctx.save();
+        // CORRECCIÓN: Usar height / 2 para alinearse perfectamente con la grilla
         ctx.translate(
-          canvas.width / (2 * DPR) - camera.x,
-          canvas.height / (4 * DPR) - camera.y
+          canvas.width / 2 - camera.x,
+          canvas.height / 2 - camera.y
         );
-        ctx.globalAlpha = 0.5;
+        
+        const drawX = p.x - (grid.tileW * width) / 2;
+        const drawY = p.y - grid.tileH * (depth - 1); 
+
+        ctx.globalAlpha = 0.6;
         ctx.drawImage(
           spriteData.img,
           drawX,
@@ -396,14 +425,14 @@ function loop(ts) {
           grid.tileW * width,
           spriteData.img.height
         );
-
         ctx.restore();
       }
     }
   }
 
   player.draw(ctx, grid, camera);
-  hud.draw(ctx);
+  hud.draw(ctx); 
+
   requestAnimationFrame(loop);
 }
 

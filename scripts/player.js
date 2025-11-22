@@ -18,7 +18,6 @@ export class Player {
 
   update(dt) {
     let dx = 0, dy = 0;
-    // Movimiento diagonal
     if (this.keys['arrowup'] || this.keys['w']) { dx -= 1; dy -= 1; }
     if (this.keys['arrowdown'] || this.keys['s']) { dx += 1; dy += 1; }
     if (this.keys['arrowleft'] || this.keys['a']) { dx -= 1; dy += 1; }
@@ -41,7 +40,13 @@ export class Player {
   draw(ctx, grid, camera) {
     const p = grid.tileToScreen(this.x, this.y);
     ctx.save();
-    ctx.translate(ctx.canvas.width / 2 - camera.x, ctx.canvas.height / 4 - camera.y);
+    
+    // CORRECCIÓN: Coincidir con grid.js (canvas.height / 2)
+    ctx.translate(
+        ctx.canvas.width / 2 - camera.x, 
+        ctx.canvas.height / 2 - camera.y
+    );
+    
     ctx.scale(CONFIG.scale, CONFIG.scale);
 
     if (this.spriteLoaded) {

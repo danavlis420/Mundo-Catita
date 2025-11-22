@@ -157,14 +157,18 @@ export class HUD {
   }
 
   // ------------------------------------------------------------
-  // Input
+  // Input (ACTUALIZADO)
   // ------------------------------------------------------------
   getMouseCanvasPos(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const DPR = window.devicePixelRatio || 1;
+    
+    // Calculamos la relación entre el tamaño visual y el tamaño interno (800x600)
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+
     return {
-      x: (e.clientX - rect.left) * (this.canvas.width / rect.width) / DPR,
-      y: (e.clientY - rect.top) * (this.canvas.height / rect.height) / DPR
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
   }
 
