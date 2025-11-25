@@ -7,7 +7,7 @@ import { initInput } from './input.js';
 import { HUD } from './hud.js';
 import { TooltipManager } from './tooltip.js';
 import { PopupManager } from './popup.js';
-import { ScrollPanel } from './scrollPanel.js'; // <--- IMPORTAR NUEVO COMPONENTE
+import { ScrollPanel } from './scrollPanel.js'; 
 
 // 1. INICIALIZAR PIXIJS
 const app = new PIXI.Application({
@@ -16,25 +16,23 @@ const app = new PIXI.Application({
   backgroundColor: 0x2b3440,
   resolution: window.devicePixelRatio || 1,
   autoDensity: true,
-  antialias: false
+  antialias: true
 });
 
 const containerDOM = document.getElementById('game-container');
 containerDOM.appendChild(app.view);
 
-// DESACTIVAR MENÚ CONTEXTUAL
 app.view.addEventListener('contextmenu', (e) => {
   e.preventDefault();
 });
 
-PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.NEAREST;
+PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.LINEAR;
 
 // 2. CAPAS
-// Orden de apilamiento: Fondo -> Mundo -> HUD -> UI (Paneles/Ventanas) -> Debug
 const fixedBackgroundContainer = new PIXI.Container();
 const worldContainer = new PIXI.Container();
 const hudContainer = new PIXI.Container();
-const uiContainer = new PIXI.Container(); // <--- NUEVA CAPA INDEPENDIENTE DEL HUD (No se escala)
+const uiContainer = new PIXI.Container(); 
 const debugLayer = new PIXI.Container();
 
 app.stage.addChild(fixedBackgroundContainer);
@@ -45,6 +43,7 @@ app.stage.addChild(debugLayer);
 
 worldContainer.sortableChildren = true;
 hudContainer.sortableChildren = true;
+// uiContainer no necesita sortable, gestionamos zIndex manualmente si es necesario (ej: overlay)
 
 // 3. UI MANAGERS
 const tooltipManager = new TooltipManager(app);
@@ -52,13 +51,13 @@ const popupManager = new PopupManager(app);
 
 // 4. FONDO JUEGO
 const bgTexture = PIXI.Texture.from('assets/backgrounds/bg.png');
-bgTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+bgTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
 const bgSprite = new PIXI.Sprite(bgTexture);
 bgSprite.width = 800;
 bgSprite.height = 600;
 fixedBackgroundContainer.addChild(bgSprite);
 
-// 5. FILTROS (Bloom + CRT)
+// 5. FILTROS
 const bloomFilter = new PIXI.filters.AdvancedBloomFilter({
   threshold: 0.05, bloomScale: 0.7, blur: 9, quality: 5
 });
@@ -81,78 +80,124 @@ const hud = new HUD(hudContainer, app, tooltipManager);
 const fpsText = new PIXI.Text('FPS: 0', {
   fontFamily: 'Arial',
   fontSize: 12,
-  fill: 0x00FF00, 
+  fill: 0x68FF8F, 
   fontWeight: 'bold',
-  stroke: 0x000000,
+  stroke: 0x142210,
   strokeThickness: 2
 });
 fpsText.x = 10;
 fpsText.y = 10;
 debugLayer.addChild(fpsText);
-fpsText.visible = false; // Oculto por defecto
+fpsText.visible = false; 
 
 // 8. INPUT
 initInput(player, camera, hud, grid, fpsText);
 
-// --- CONFIGURACIÓN PANEL PRINCIPAL (INDEPENDIENTE) ---
-// Posición lógica 800x600. Lo pondremos a la derecha, alineado visualmente.
-// Pasamos uiContainer como capa para los dropdowns.
+// --- CONFIGURACIÓN PANEL PRINCIPAL ---
 const mainPanel = new ScrollPanel(410, 125, 14, uiContainer);
 mainPanel.x = 365; 
 mainPanel.y = 465; 
-mainPanel.visible = false; // Oculto al inicio
+mainPanel.visible = false; 
 uiContainer.addChild(mainPanel);
 
 // --- SISTEMA DE MENÚS ---
 const MenuSystem = {
   toggle: (menuName) => {
-    // Si ya está visible y es el mismo menú, lo cerramos
     if (mainPanel.visible && mainPanel.currentMenu === menuName) {
       mainPanel.visible = false;
       mainPanel.currentMenu = null;
+      mainPanel.clear(); // Limpiar y cerrar dropdowns
       return;
     }
     
-    // Si no, abrimos y llenamos contenido
     mainPanel.clear();
     mainPanel.visible = true;
     mainPanel.currentMenu = menuName;
     
     switch(menuName) {
-      case 'CONSTRUCCION':
-        MenuSystem.buildConstructionMenu();
-        break;
-      case 'PERSONAJE':
-        MenuSystem.buildCharacterMenu();
-        break;
-      case 'OPCIONES':
-        MenuSystem.buildOptionsMenu();
-        break;
-      case 'AYUDA':
-        MenuSystem.buildHelpMenu();
-        break;
+      case 'CONSTRUCCION': MenuSystem.buildConstructionMenu(); break;
+      case 'PERSONAJE': MenuSystem.buildCharacterMenu(); break;
+      case 'OPCIONES': MenuSystem.buildOptionsMenu(); break;
+      case 'AYUDA': MenuSystem.buildHelpMenu(); break;
     }
   },
 
   buildConstructionMenu: () => {
+    mainPanel.clear();
     mainPanel.addText("Construcción", 18, true);
+
+    const categories = ["Todo", "Suelo", "Pared", "Obj/Mueble", "Personaje"];
     
-    mainPanel.addDropdown("Filtro", ["Todo", "Estructuras", "Naturaleza"], (val) => {
-        console.log("Filtrar por:", val);
+    const getCategoryFromFolder = (folder) => {
+        if (folder === 'floor') return 'Suelo';
+        if (folder === 'wall') return 'Pared';
+        if (folder === 'sims') return 'Personaje';
+        return 'Obj/Mueble'; 
+    };
+
+    const renderItems = (filter) => {
+        const allSprites = hud.getSpritesList();
+        
+        let filtered = allSprites;
+        if (filter !== "Todo") {
+            filtered = allSprites.filter(s => getCategoryFromFolder(s.category) === filter);
+        }
+
+        filtered.sort((a, b) => {
+            const areaA = a.width * a.height;
+            const areaB = b.width * b.height;
+            if (areaA !== areaB) return areaA - areaB; 
+            return a.name.localeCompare(b.name);
+        });
+
+        const gridItems = filtered.map(s => ({
+            texture: s.path,
+            label: `${s.name.split('_')[0]} (${s.width}x${s.height})`, 
+            callback: () => hud.selectSprite(s.path)
+        }));
+
+        mainPanel.addGridItems(gridItems);
+    };
+
+    mainPanel.addDropdown("Filtrar por:", categories, (selectedFilter) => {
+        // Al seleccionar, reconstruimos el menú para filtrar
+        MenuSystem.buildConstructionMenuRefreshed(selectedFilter);
     });
 
-    mainPanel.addText("Elementos:", 14);
-    
-    // Items de prueba
-    const items = [
-      { texture: 'assets/sprites/floor_wood.png', label: 'Piso', callback: () => hud.setMode('sprite') },
-      { texture: 'assets/sprites/wall_brick.png', label: 'Pared', callback: () => hud.setMode('sprite') },
-      { texture: 'assets/sprites/obj_bush.png', label: 'Arbusto', callback: () => hud.setMode('sprite') },
-      { texture: 'assets/sprites/obj_table.png', label: 'Mesa', callback: () => hud.setMode('sprite') },
-      { texture: 'assets/sprites/floor_grass.png', label: 'Pasto', callback: () => hud.setMode('sprite') },
-    ];
-    // Duplicamos para testear el scroll
-    mainPanel.addGridItems([...items, ...items]); 
+    renderItems("Todo");
+  },
+
+  buildConstructionMenuRefreshed: (filterVal) => {
+      mainPanel.clear();
+      mainPanel.addText("Construcción", 18, true);
+      
+      const categories = ["Todo", "Suelo", "Pared", "Obj/Mueble", "Personaje"];
+      
+      mainPanel.addDropdown("Filtrar por:", categories, (val) => MenuSystem.buildConstructionMenuRefreshed(val));
+      
+      // Restaurar valor visual del dropdown
+      const lastDd = mainPanel.dropdowns[mainPanel.dropdowns.length-1];
+      if(lastDd) { lastDd.selectedText = filterVal; lastDd.drawBase(); }
+
+      const allSprites = hud.getSpritesList();
+      const getCategoryFromFolder = (f) => {
+          if (f === 'floor') return 'Suelo';
+          if (f === 'wall') return 'Pared';
+          if (f === 'sims') return 'Personaje';
+          return 'Obj/Mueble';
+      };
+
+      let filtered = allSprites;
+      if (filterVal !== "Todo") filtered = allSprites.filter(s => getCategoryFromFolder(s.category) === filterVal);
+      
+      filtered.sort((a, b) => (a.width * a.height) - (b.width * b.height));
+
+      const gridItems = filtered.map(s => ({
+          texture: s.path,
+          label: `${s.name} (${s.width}x${s.height})`,
+          callback: () => hud.selectSprite(s.path)
+      }));
+      mainPanel.addGridItems(gridItems);
   },
 
   buildCharacterMenu: () => {
@@ -185,30 +230,20 @@ const MenuSystem = {
 };
 
 // 9. ZOOM MOUSE
-window.addEventListener('wheel', (e) => {
-  e.preventDefault(); // Siempre evitar scroll del navegador
+app.view.addEventListener('wheel', (e) => {
+  e.preventDefault();
+}, { passive: false });
 
-  // 1. Mapeo de coordenadas seguro
-  const hitObj = app.renderer.events.mapPositionToPoint(new PIXI.Point(), e.clientX, e.clientY);
-
-  // 2. PROTECCIÓN HUD
-  // Si el mouse está en la zona inferior (HUD), ignoramos.
-  // Usamos una validación de seguridad por si la variable no está lista.
-  if (typeof HUD_START_Y !== 'undefined' && hitObj.y >= HUD_START_Y) return;
-
-  // 3. ZOOM
-  // Si llegamos aquí, significa que:
-  // a) No estamos sobre el HUD.
-  // b) No estamos sobre el ScrollPanel (porque él hubiera hecho stopPropagation).
-  // Por lo tanto, es seguro hacer zoom.
+app.stage.on('wheel', (e) => {
+  // Ahora es seguro asumir que si llega el evento aquí, NO estamos en el ScrollPanel
+  // ni en un Dropdown, porque esos componentes usan stopPropagation().
   const direction = Math.sign(e.deltaY) * -1; 
-  
   if (direction !== 0) {
     camera.changeZoom(direction);
   }
-}, { passive: false });
+});
 
-// --- LÓGICA DE SCREENSHOT ---
+// --- SCREENSHOT ---
 async function takeScreenshot() {
   const wasHudVisible = hudContainer.visible;
   const wasDebugVisible = debugLayer.visible;
@@ -230,7 +265,7 @@ async function takeScreenshot() {
   tooltipManager.hide(); 
   popupManager.hide(); 
 
-  // Renderizar frame limpio
+  // Renderizar
   app.render();
 
   try {
@@ -249,7 +284,7 @@ async function takeScreenshot() {
     console.error("Error al generar screenshot:", err);
   }
 
-  // RESTAURAR ESTADO
+  // RESTAURAR
   hudContainer.visible = wasHudVisible;
   debugLayer.visible = wasDebugVisible;
   uiContainer.visible = wasUiVisible;
@@ -289,7 +324,6 @@ const HUD_POS = {
   btnScreenshot: { x: 1255, y: 660, scale: .9 },
 };
 
-// Sprites decorativos del HUD
 hud.addSprite('data/hud/dial.png', HUD_POS.dial.x, HUD_POS.dial.y, HUD_POS.dial.scale);
 hud.addSprite('data/hud/pj.png', HUD_POS.pj.x, HUD_POS.pj.y, HUD_POS.pj.scale);
 hud.addSprite('data/hud/smallpanel.png', HUD_POS.smallpanel.x, HUD_POS.smallpanel.y, HUD_POS.smallpanel.scale);
@@ -368,18 +402,12 @@ function getBaseTileUnderCursor(globalPos) {
 }
 
 app.stage.on('pointerdown', (e) => {
-  // Bloqueamos clicks si estamos sobre el HUD o el Panel
+  // Bloqueamos clicks si estamos sobre el HUD
   if (e.global.y >= HUD_START_Y) return;
   
-  // Si el panel está abierto y clickeamos sobre él, no hacemos nada en el mundo
-  if (mainPanel.visible) {
-      const b = mainPanel.getBounds();
-      if (e.global.x >= b.x && e.global.x <= b.x + b.width &&
-          e.global.y >= b.y && e.global.y <= b.y + b.height) {
-          return;
-      }
-  }
-
+  // Si hay un blocker activo en UI (dropdown abierto), no hacemos nada
+  // El evento del blocker ya hizo stopPropagation, así que esto es redundante pero seguro.
+  
   if (hud.isCameraMode()) {
     camera.startDrag(e.global.x, e.global.y);
   } else {
@@ -431,13 +459,12 @@ let ghostSprite = null;
 function updateGhostSprite() {
   const globalMouse = app.renderer.events.pointer.global;
   
-  // Si el mouse está sobre el HUD, ocultamos el fantasma
   if (globalMouse.y >= HUD_START_Y) {
     if (ghostSprite) ghostSprite.visible = false;
     return;
   }
 
-  // Si el panel está abierto y el mouse está encima, ocultamos fantasma
+  // Si el panel está abierto y el mouse está encima
   if (mainPanel.visible) {
       const b = mainPanel.getBounds();
       if (globalMouse.x >= b.x && globalMouse.x <= b.x + b.width &&

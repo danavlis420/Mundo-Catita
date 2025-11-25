@@ -9,6 +9,7 @@ export class HUD {
     this.cameraLocked = true;
     this.selectedSprite = null;
     this.spritesData = {};
+    this.spritesList = []; 
 
     this.loadSpritesJSON();
   }
@@ -18,19 +19,32 @@ export class HUD {
   toggleCameraLock() { this.cameraLocked = !this.cameraLocked; }
   isCameraLocked() { return this.cameraLocked; }
   getSelectedSprite() { return this.selectedSprite; }
-  
+
   loadSpritesJSON() {
     fetch('data/sprites.json')
       .then(res => res.json())
       .then(data => {
+        this.spritesList = data;
         data.forEach(s => this.spritesData[s.path] = s);
-        this.updateSpriteDropdown();
-      });
+        // ELIMINADO: this.updateSpriteDropdown(); <- Esto causaba el error
+      })
+      .catch(e => console.error("Error cargando sprites.json:", e));
   }
-  getSpriteData(path) { return this.spritesData[path]; }
-  updateSpriteDropdown() {
-    const keys = Object.keys(this.spritesData);
-    if (keys.length > 0) this.selectedSprite = keys[0];
+
+  getSpritesList() {
+    return this.spritesList || [];
+  }
+
+  getSpriteData(path) {
+    return this.spritesData[path];
+  }
+
+  selectSprite(path) {
+    if (this.spritesData[path]) {
+      this.selectedSprite = path;
+      this.setMode('sprite'); 
+      console.log("Sprite seleccionado:", path);
+    }
   }
 
   // --- CARGA DE TEXTURAS SUAVIZADAS ---
@@ -41,7 +55,6 @@ export class HUD {
   }
 
   // --- MÉTODOS DE DIBUJO ---
-
   addBackground(imagePath) {
     const texture = this.loadSmoothTexture(imagePath);
     const bg = new PIXI.Sprite(texture);
@@ -66,7 +79,9 @@ export class HUD {
     btn.eventMode = 'static'; 
     btn.cursor = 'pointer';
 
-    btn.on('pointerdown', () => {
+    btn.on('pointerdown', (e) => {
+      // Evitar propagación para que no interactúe con el mundo si hay superposición
+      e.stopPropagation();
       btn.tint = 0xAAAAAA; 
       if (action) action();
     });

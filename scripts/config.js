@@ -12,9 +12,13 @@ export const CONFIG = {
   playerSpeed: 5,
   snapSpeed: 10,
   
-  // --- NUEVA CONFIGURACIÓN DE ZOOM ---
-  zoomStep: 0.25,    // Cuánto aumenta/disminuye la escala por paso (25%)
-  maxZoomSteps: 3    // Cuántos pasos hacia arriba/abajo permitimos
+  // --- CONFIGURACIÓN DE RENDERIZADO ISOMÉTRICO ---
+  zUnit: 16,         // Píxeles que sube el sprite por cada unidad de Z (Height 3D)
+  shadowFactor: 0.5, // Ajuste opcional para sombras
+  
+  // --- CONFIGURACIÓN DE ZOOM ---
+  zoomStep: 0.25,
+  maxZoomSteps: 3
 };
 
 export function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
