@@ -2,37 +2,57 @@
   {
     "id": "floor_floor1_1x1_1",
     "name": "floor1",
-    "category": "floor",
-    "path": "assets/sprites/floor/floor1_1x1_1.png",
+    "category": "Piso",
+    "sourceFolder": "floor",
+    "path": "assets/sprites/floor/floor1_1x1.png",
     "width": 1,
     "height": 1,
-    "depth": 1
+    "depth": 1,
+    "anchor": {
+      "x": 0,
+      "y": 0
+    }
   },
   {
     "id": "floor_floor2_8x8_1",
     "name": "floor2",
-    "category": "floor",
-    "path": "assets/sprites/floor/floor2_8x8_1.png",
+    "category": "Piso",
+    "sourceFolder": "floor",
+    "path": "assets/sprites/floor/floor2_8x8.png",
     "width": 8,
     "height": 8,
-    "depth": 1
+    "depth": 1,
+    "anchor": {
+      "x": 4,
+      "y": 4
+    }
   },
   {
     "id": "floor_floor3_2x2_1",
     "name": "floor3",
-    "category": "floor",
-    "path": "assets/sprites/floor/floor3_2x2_1.png",
+    "category": "Piso",
+    "sourceFolder": "floor",
+    "path": "assets/sprites/floor/floor3_2x2.png",
     "width": 2,
     "height": 2,
-    "depth": 1
+    "depth": 1,
+    "anchor": {
+      "x": 1,
+      "y": 1
+    }
   },
   {
     "id": "wall_paredBase_1x1_3",
     "name": "paredBase",
-    "category": "wall",
+    "category": "Pared",
+    "sourceFolder": "wall",
     "path": "assets/sprites/wall/paredBase_1x1_3.png",
     "width": 1,
     "height": 1,
-    "depth": 3
+    "depth": 3,
+    "anchor": {
+      "x": 0,
+      "y": 0
+    }
   }
 ]

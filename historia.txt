@@ -27,6 +27,8 @@ camera.js
 input.js
 config.js
 generateSprites.js
+scrollPanel.js
+popup.js
 styles/
 game.css
 styles.css
@@ -44,12 +46,6 @@ hudContainer: interfaz fija en pantalla, escala independiente.
 TooltipManager: capa superior para textos flotantes.
 
 Reglas Técnicas Críticas:
-
-Dualidad de escalado:
-
-Mundo (pixel art): PIXI.SCALE_MODES.NEAREST para mantener píxeles nítidos.
-
-HUD (alta resolución): PIXI.SCALE_MODES.LINEAR usando una función especial loadSmoothTexture.
 
 Sistema de coordenadas:
 

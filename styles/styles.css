@@ -45,7 +45,8 @@ html, body {
   justify-content: center;
   align-items: center;
   background: linear-gradient(to bottom, #393E6E, #263859);
-  background-color: #263859; 
+  background-color: #263859;
+  cursor: url("../assets/cursor/main.cur"), auto;
 }
 
 @media (max-width:480px){

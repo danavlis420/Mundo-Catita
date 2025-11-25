@@ -459,12 +459,11 @@ let ghostSprite = null;
 function updateGhostSprite() {
   const globalMouse = app.renderer.events.pointer.global;
   
+  // Validaciones de UI (HUD, Paneles)
   if (globalMouse.y >= HUD_START_Y) {
     if (ghostSprite) ghostSprite.visible = false;
     return;
   }
-
-  // Si el panel está abierto y el mouse está encima
   if (mainPanel.visible) {
       const b = mainPanel.getBounds();
       if (globalMouse.x >= b.x && globalMouse.x <= b.x + b.width &&
@@ -474,25 +473,40 @@ function updateGhostSprite() {
       }
   }
 
+  // Lógica de Ghost
   if (hud.mode === 'sprite' && hud.getSelectedSprite()) {
     const tile = getBaseTileUnderCursor(globalMouse);
     if (tile) {
       const spriteData = hud.getSpriteData(hud.getSelectedSprite());
+      
       if (!ghostSprite) {
         ghostSprite = new PIXI.Sprite();
-        ghostSprite.alpha = 0.6; ghostSprite.tint = 0xAAFFAA;
+        ghostSprite.alpha = 0.6; 
+        ghostSprite.tint = 0xAAFFAA;
         worldContainer.addChild(ghostSprite);
       }
+      
       if (spriteData && spriteData.path) {
         const tex = PIXI.Texture.from(spriteData.path);
         if (ghostSprite.texture !== tex) ghostSprite.texture = tex;
-        const isFloor = (spriteData.category === 'floor');
-        const anchorY = isFloor ? 0.5 : 1.0;
-        ghostSprite.anchor.set(0.5, anchorY);
-        const p = grid.tileToScreen(tile.x, tile.y);
-        ghostSprite.x = p.x;
-        ghostSprite.y = p.y + grid.tileH / 2;
-        ghostSprite.zIndex = 99999; ghostSprite.visible = true;
+        
+        const internalCat = grid.catMap[spriteData.category] || 'object';
+        const isFloor = (internalCat === 'floor');
+        
+        // 1. Configurar Anchor igual que en Grid
+        if (isFloor) {
+            ghostSprite.anchor.set(0.5, 0.5);
+        } else {
+            ghostSprite.anchor.set(0.5, 1.0);
+        }
+
+        // 2. Obtener Posición Exacta desde Grid
+        const pos = grid.getSpriteScreenPosition(tile.x, tile.y, spriteData);
+        
+        ghostSprite.x = pos.x;
+        ghostSprite.y = pos.y;
+        ghostSprite.zIndex = 99999; 
+        ghostSprite.visible = true;
       }
     } else { if (ghostSprite) ghostSprite.visible = false; }
   } else { if (ghostSprite) ghostSprite.visible = false; }
