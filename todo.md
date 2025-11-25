@@ -1,5 +1,6 @@
 ## Anotar siguientes pasos del proyecto
 
+- Alineación tiles (Anchor). Reprogramar generador.
 - Modo del HUD
 - Personaje (móvil/estático)
 - Diálogo y cambio de cámara
