@@ -43,7 +43,6 @@ app.stage.addChild(debugLayer);
 
 worldContainer.sortableChildren = true;
 hudContainer.sortableChildren = true;
-// uiContainer no necesita sortable, gestionamos zIndex manualmente si es necesario (ej: overlay)
 
 // 3. UI MANAGERS
 const tooltipManager = new TooltipManager(app);
@@ -78,15 +77,10 @@ const hud = new HUD(hudContainer, app, tooltipManager);
 
 // 7. CONTADOR FPS
 const fpsText = new PIXI.Text('FPS: 0', {
-  fontFamily: 'Arial',
-  fontSize: 12,
-  fill: 0x68FF8F, 
-  fontWeight: 'bold',
-  stroke: 0x142210,
-  strokeThickness: 2
+  fontFamily: 'Arial', fontSize: 12, fill: 0x68FF8F, 
+  fontWeight: 'bold', stroke: 0x142210, strokeThickness: 2
 });
-fpsText.x = 10;
-fpsText.y = 10;
+fpsText.x = 10; fpsText.y = 10;
 debugLayer.addChild(fpsText);
 fpsText.visible = false; 
 
@@ -103,10 +97,20 @@ uiContainer.addChild(mainPanel);
 // --- SISTEMA DE MENÚS ---
 const MenuSystem = {
   toggle: (menuName) => {
+    // Lógica extendida para conectar con HUD Construction Mode
+    // Si cerramos construcción, avisar al HUD
+    if (mainPanel.visible && mainPanel.currentMenu === 'CONSTRUCCION' && menuName !== 'CONSTRUCCION') {
+        hud.toggleConstructionMode(false);
+    }
+
+    // Lógica base de toggle
     if (mainPanel.visible && mainPanel.currentMenu === menuName) {
       mainPanel.visible = false;
       mainPanel.currentMenu = null;
-      mainPanel.clear(); // Limpiar y cerrar dropdowns
+      mainPanel.clear();
+      
+      // Si cerramos el menú y era construcción
+      if (menuName === 'CONSTRUCCION') hud.toggleConstructionMode(false);
       return;
     }
     
@@ -114,11 +118,18 @@ const MenuSystem = {
     mainPanel.visible = true;
     mainPanel.currentMenu = menuName;
     
-    switch(menuName) {
-      case 'CONSTRUCCION': MenuSystem.buildConstructionMenu(); break;
-      case 'PERSONAJE': MenuSystem.buildCharacterMenu(); break;
-      case 'OPCIONES': MenuSystem.buildOptionsMenu(); break;
-      case 'AYUDA': MenuSystem.buildHelpMenu(); break;
+    // Si abrimos construcción
+    if (menuName === 'CONSTRUCCION') {
+        hud.toggleConstructionMode(true);
+        MenuSystem.buildConstructionMenu();
+    } else {
+        // Asegurar que cerramos herramientas si cambiamos a otro menú
+        hud.toggleConstructionMode(false);
+        switch(menuName) {
+            case 'PERSONAJE': MenuSystem.buildCharacterMenu(); break;
+            case 'OPCIONES': MenuSystem.buildOptionsMenu(); break;
+            case 'AYUDA': MenuSystem.buildHelpMenu(); break;
+        }
     }
   },
 
@@ -160,7 +171,6 @@ const MenuSystem = {
     };
 
     mainPanel.addDropdown("Filtrar por:", categories, (selectedFilter) => {
-        // Al seleccionar, reconstruimos el menú para filtrar
         MenuSystem.buildConstructionMenuRefreshed(selectedFilter);
     });
 
@@ -175,7 +185,6 @@ const MenuSystem = {
       
       mainPanel.addDropdown("Filtrar por:", categories, (val) => MenuSystem.buildConstructionMenuRefreshed(val));
       
-      // Restaurar valor visual del dropdown
       const lastDd = mainPanel.dropdowns[mainPanel.dropdowns.length-1];
       if(lastDd) { lastDd.selectedText = filterVal; lastDd.drawBase(); }
 
@@ -194,7 +203,7 @@ const MenuSystem = {
 
       const gridItems = filtered.map(s => ({
           texture: s.path,
-          label: `${s.name} (${s.width}x${s.height})`,
+          label: `${s.name.split('_')[0]} (${s.width}x${s.height})`,
           callback: () => hud.selectSprite(s.path)
       }));
       mainPanel.addGridItems(gridItems);
@@ -205,10 +214,9 @@ const MenuSystem = {
     mainPanel.addText("Estado: Saludable");
     mainPanel.addText("Nivel: 5");
     mainPanel.addText("Inventario:", 14, true);
-    
     const items = [
-      { texture: 'assets/sprites/obj_bush.png', label: 'Bayas', callback: () => {} },
-      { texture: 'assets/sprites/obj_table.png', label: 'Mapa', callback: () => {} },
+      { texture: 'assets/sprites/obj/bush_1x1_1.png', label: 'Bayas', callback: () => {} }, // Ejemplo ajustado
+      { texture: 'assets/sprites/obj/table_1x1_1.png', label: 'Mapa', callback: () => {} },
     ];
     mainPanel.addGridItems(items);
   },
@@ -224,8 +232,6 @@ const MenuSystem = {
     mainPanel.addText("Ayuda", 18, true);
     mainPanel.addText("Controles Básicos:", 14, true);
     mainPanel.addText("- Click Izq: Mover/Acción\n- Click Der: Borrar/Cancelar\n- Rueda: Zoom\n- G: Grilla\n- R: Reset Cámara");
-    mainPanel.addText("Objetivo:", 14, true);
-    mainPanel.addText("Construye tu propio mundo usando las herramientas del panel de construcción.");
   }
 };
 
@@ -235,8 +241,7 @@ app.view.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 app.stage.on('wheel', (e) => {
-  // Ahora es seguro asumir que si llega el evento aquí, NO estamos en el ScrollPanel
-  // ni en un Dropdown, porque esos componentes usan stopPropagation().
+  if (e.target && (e.target === mainPanel || mainPanel.contains(e.target))) return; 
   const direction = Math.sign(e.deltaY) * -1; 
   if (direction !== 0) {
     camera.changeZoom(direction);
@@ -252,20 +257,21 @@ async function takeScreenshot() {
   const wasBorderGridVisible = grid.borderGraphics ? grid.borderGraphics.visible : false;
   const wasGhostVisible = ghostSprite ? ghostSprite.visible : false;
   
-  // OCULTAR TODO
   hudContainer.visible = false;
   debugLayer.visible = false;
   uiContainer.visible = false; 
   
   if (grid.innerGraphics) grid.innerGraphics.visible = false;
   if (grid.borderGraphics) grid.borderGraphics.visible = false;
-
   if (ghostSprite) ghostSprite.visible = false;
   
   tooltipManager.hide(); 
   popupManager.hide(); 
+  
+  // Ocultar ventana herramientas temporalmente si es parte del HUD container
+  const toolsWasVisible = hud.constructionTools.visible;
+  hud.constructionTools.visible = false;
 
-  // Renderizar
   app.render();
 
   try {
@@ -284,15 +290,13 @@ async function takeScreenshot() {
     console.error("Error al generar screenshot:", err);
   }
 
-  // RESTAURAR
   hudContainer.visible = wasHudVisible;
   debugLayer.visible = wasDebugVisible;
   uiContainer.visible = wasUiVisible;
-  
   if (grid.innerGraphics) grid.innerGraphics.visible = wasInnerGridVisible;
   if (grid.borderGraphics) grid.borderGraphics.visible = wasBorderGridVisible;
-  
   if (ghostSprite) ghostSprite.visible = wasGhostVisible;
+  hud.constructionTools.visible = toolsWasVisible;
 }
 
 // 10. CONFIGURACIÓN HUD
@@ -312,8 +316,6 @@ const HUD_POS = {
   pj: { x: 773, y: 300, scale: 1 },
   smallpanel: { x: 730, y: 580, scale: 1 },
   panel: { x: 1435, y: 265, scale: 1 },
-  
-  // Botones
   btnPersonas: { x: 90, y: 30, scale: 1 },
   btnPj: { x: 370, y: 90, scale: 1 },
   btnConstruccion: { x: 550, y: 260, scale: 1 },
@@ -330,8 +332,7 @@ hud.addSprite('data/hud/smallpanel.png', HUD_POS.smallpanel.x, HUD_POS.smallpane
 hud.addSprite('data/hud/panel.png', HUD_POS.panel.x, HUD_POS.panel.y, HUD_POS.panel.scale);
 hud.addSprite('data/hud/ball.png', HUD_POS.ball.x, HUD_POS.ball.y, HUD_POS.ball.scale);
 
-
-// --- BOTONES CONECTADOS AL MENU SYSTEM ---
+// --- BOTONES HUD ---
 
 hud.addButton({
   id: 'btnConstruccion', image: 'data/hud/btn_construccion.png',
@@ -392,7 +393,7 @@ hud.addButton({
   }
 });
 
-// 11. INTERACCIÓN
+// 11. INTERACCIÓN (SISTEMA DE EVENTOS CENTRAL)
 app.stage.eventMode = 'static';
 app.stage.hitArea = app.screen;
 
@@ -401,36 +402,116 @@ function getBaseTileUnderCursor(globalPos) {
   return grid.screenToTile(localPos.x, localPos.y);
 }
 
+// Variable para el estado del borrador
+let hoveredEraserSprite = null;
+
+// --- POINTER DOWN ---
 app.stage.on('pointerdown', (e) => {
-  // Bloqueamos clicks si estamos sobre el HUD
   if (e.global.y >= HUD_START_Y) return;
+
+  // Bloquear si click en ventana de herramientas (si está visible)
+  if (hud.constructionTools && hud.constructionTools.visible) {
+      const toolBounds = hud.constructionTools.getBounds();
+      // Verificación simple de bounds globales (teniendo en cuenta que tool está en hudContainer)
+      const globalToolPos = hud.constructionTools.getGlobalPosition();
+      // Como toolBounds es local, mejor usar containsPoint con lógica global directa si es posible,
+      // o simplificar: si el target es parte de las herramientas, el evento ya se detuvo ahí (stopPropagation en botones).
+      // Pero si clickeamos el fondo del panel herramientas:
+      if (e.target && (e.target === hud.constructionTools || hud.constructionTools.children.includes(e.target))) return;
+  }
   
-  // Si hay un blocker activo en UI (dropdown abierto), no hacemos nada
-  // El evento del blocker ya hizo stopPropagation, así que esto es redundante pero seguro.
-  
+  // Bloquear si click en Main Panel
+  if (mainPanel.visible) {
+      const b = mainPanel.getBounds();
+      if (e.global.x >= b.x && e.global.x <= b.x + b.width && e.global.y >= b.y && e.global.y <= b.y + b.height) return;
+  }
+
   if (hud.isCameraMode()) {
     camera.startDrag(e.global.x, e.global.y);
   } else {
-    const tile = getBaseTileUnderCursor(e.global);
-    if (!tile) return;
-    const spritePath = hud.getSelectedSprite();
-    const spriteData = hud.getSpriteData(spritePath);
+    // --- MODO CONSTRUCCION ---
+    const tool = hud.getConstructionTool();
+    const layer = hud.getConstructionLayer();
 
-    if (e.button === 0 && spriteData) {
-      grid.setTileSprite(tile.x, tile.y, spriteData);
-    } else if (e.button === 2) {
-      grid.clearTile(tile.x, tile.y, spriteData?.category || 'object');
+    if (e.button === 0) { // Click Izquierdo
+        if (tool === 'brush') {
+            const tile = getBaseTileUnderCursor(e.global);
+            const spritePath = hud.getSelectedSprite();
+            if (tile && spritePath) {
+                const spriteData = hud.getSpriteData(spritePath);
+                if (spriteData) {
+                    grid.setTileSprite(tile.x, tile.y, spriteData, layer);
+                }
+            }
+        } else if (tool === 'eraser') {
+            // Borrado por click izquierdo sobre el sprite resaltado
+            if (hoveredEraserSprite) {
+                const { x, y, layer } = hoveredEraserSprite.gridLocation;
+                grid.removeTileFromLayer(x, y, layer);
+                hoveredEraserSprite = null; 
+            }
+        }
+    } 
+    // Click derecho: Cancelar selección o cerrar menú
+    else if (e.button === 2) {
+       hud.toggleConstructionMode(false);
+       if(mainPanel.currentMenu === 'CONSTRUCCION') MenuSystem.toggle('CONSTRUCCION');
     }
   }
 });
 
+// --- POINTER MOVE ---
 app.stage.on('pointermove', (e) => {
-  if (hud.isCameraMode()) camera.drag(e.global.x, e.global.y);
+  if (hud.isCameraMode()) {
+      camera.drag(e.global.x, e.global.y);
+  } else {
+      // LOGICA HOVER BORRADOR
+      if (hud.mode === 'sprite' && hud.getConstructionTool() === 'eraser') {
+          updateEraserHover(e.global);
+      } else {
+          // Limpiar tinte si cambiamos de herramienta
+          if (hoveredEraserSprite) {
+              hoveredEraserSprite.tint = 0xFFFFFF;
+              hoveredEraserSprite = null;
+          }
+      }
+  }
 });
+
 app.stage.on('pointerup', () => camera.endDrag());
 app.stage.on('pointerupoutside', () => camera.endDrag());
 
-// 12. LOOP
+// --- FUNCIÓN DE HOVER BORRADOR ---
+function updateEraserHover(globalPos) {
+    const activeLayer = hud.getConstructionLayer();
+    let found = null;
+    
+    // Iteramos en reverso (de arriba a abajo visualmente)
+    for (let i = worldContainer.children.length - 1; i >= 0; i--) {
+        const obj = worldContainer.children[i];
+        
+        // Solo nos interesan los tiles interactivos de la capa activa
+        if (obj.isInteractiveTile && obj.gridLocation && obj.gridLocation.layer === activeLayer) {
+            if (obj.containsPoint(globalPos)) {
+                found = obj;
+                break;
+            }
+        }
+    }
+
+    if (hoveredEraserSprite && hoveredEraserSprite !== found) {
+        hoveredEraserSprite.tint = 0xFFFFFF; // Restaurar anterior
+    }
+
+    if (found) {
+        found.tint = 0xFF0000; // Rojo
+        hoveredEraserSprite = found;
+    } else {
+        hoveredEraserSprite = null;
+    }
+}
+
+// 12. LOOP PRINCIPAL
 let time = 0;
 app.ticker.add((delta) => {
   const dt = delta / 60;
@@ -455,15 +536,17 @@ app.ticker.add((delta) => {
   crtFilter.seed = Math.random();
 });
 
+// --- GHOST SPRITE ---
 let ghostSprite = null;
 function updateGhostSprite() {
   const globalMouse = app.renderer.events.pointer.global;
   
-  // Validaciones de UI (HUD, Paneles)
-  if (globalMouse.y >= HUD_START_Y) {
-    if (ghostSprite) ghostSprite.visible = false;
-    return;
+  // Validaciones UI
+  if (globalMouse.y >= HUD_START_Y) { 
+      if(ghostSprite) ghostSprite.visible=false; 
+      return; 
   }
+  
   if (mainPanel.visible) {
       const b = mainPanel.getBounds();
       if (globalMouse.x >= b.x && globalMouse.x <= b.x + b.width &&
@@ -473,11 +556,24 @@ function updateGhostSprite() {
       }
   }
 
-  // Lógica de Ghost
-  if (hud.mode === 'sprite' && hud.getSelectedSprite()) {
+  if (hud.constructionTools && hud.constructionTools.visible) {
+      const tb = hud.constructionTools.getBounds();
+      // Ojo: getBounds del contenedor tools devuelve coordenadas locales al parent (hudContainer) si no se transforma
+      // Usamos posiciones globales aproximadas
+      const gp = hud.constructionTools.getGlobalPosition();
+      if (globalMouse.x >= gp.x && globalMouse.x <= gp.x + hud.constructionTools.width &&
+          globalMouse.y >= gp.y && globalMouse.y <= gp.y + hud.constructionTools.height) {
+          if (ghostSprite) ghostSprite.visible = false;
+          return;
+      }
+  }
+
+  // Solo mostrar ghost si estamos en modo PINCEL
+  if (hud.mode === 'sprite' && hud.getConstructionTool() === 'brush' && hud.getSelectedSprite()) {
     const tile = getBaseTileUnderCursor(globalMouse);
     if (tile) {
       const spriteData = hud.getSpriteData(hud.getSelectedSprite());
+      const layer = hud.getConstructionLayer();
       
       if (!ghostSprite) {
         ghostSprite = new PIXI.Sprite();
@@ -493,20 +589,17 @@ function updateGhostSprite() {
         const internalCat = grid.catMap[spriteData.category] || 'object';
         const isFloor = (internalCat === 'floor');
         
-        // 1. Configurar Anchor igual que en Grid
-        if (isFloor) {
-            ghostSprite.anchor.set(0.5, 0.5);
-        } else {
-            ghostSprite.anchor.set(0.5, 1.0);
-        }
+        if (isFloor) ghostSprite.anchor.set(0.5, 0.5);
+        else ghostSprite.anchor.set(0.5, 1.0);
 
-        // 2. Obtener Posición Exacta desde Grid
-        const pos = grid.getSpriteScreenPosition(tile.x, tile.y, spriteData);
+        // Usar la capa seleccionada para el preview
+        const pos = grid.getSpriteScreenPosition(tile.x, tile.y, spriteData, layer);
         
         ghostSprite.x = pos.x;
         ghostSprite.y = pos.y;
-        ghostSprite.zIndex = 99999; 
+        ghostSprite.zIndex = 999999; 
         ghostSprite.visible = true;
+        ghostSprite.tint = 0xAAFFAA; // Verde
       }
     } else { if (ghostSprite) ghostSprite.visible = false; }
   } else { if (ghostSprite) ghostSprite.visible = false; }

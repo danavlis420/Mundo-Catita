@@ -1,4 +1,6 @@
 // scripts/hud.js
+import { ConstructionTools } from './constructionTools.js';
+
 export class HUD {
   constructor(container, app, tooltipManager) {
     this.container = container;
@@ -11,6 +13,11 @@ export class HUD {
     this.spritesData = {};
     this.spritesList = []; 
 
+    // Instancia de Herramientas (Popup No Bloqueante)
+    // Se añade al contenedor HUD para estar en la capa UI pero es draggable
+    this.constructionTools = new ConstructionTools(app, this);
+    this.container.addChild(this.constructionTools);
+
     this.loadSpritesJSON();
   }
 
@@ -19,6 +26,21 @@ export class HUD {
   toggleCameraLock() { this.cameraLocked = !this.cameraLocked; }
   isCameraLocked() { return this.cameraLocked; }
   getSelectedSprite() { return this.selectedSprite; }
+
+  toggleConstructionMode(active) {
+    if (active) {
+        this.setMode('sprite');
+        this.constructionTools.open();
+    } else {
+        this.setMode('camera'); // O lo que corresponda al salir
+        this.constructionTools.close();
+        this.selectedSprite = null;
+    }
+  }
+
+  // Wrapper para obtener estado de herramientas
+  getConstructionTool() { return this.constructionTools.currentTool; }
+  getConstructionLayer() { return this.constructionTools.currentLayer; }
 
   loadSpritesJSON() {
     fetch('data/sprites.json')
@@ -42,8 +64,25 @@ export class HUD {
   selectSprite(path) {
     if (this.spritesData[path]) {
       this.selectedSprite = path;
-      this.setMode('sprite'); 
-      console.log("Sprite seleccionado:", path);
+      this.setMode('sprite'); // Activa modo construcción
+      
+      // Abrir herramientas si no están abiertas
+      if (!this.constructionTools.visible) {
+        this.constructionTools.open();
+      }
+
+      // LÓGICA AUTO-CAPA
+      const s = this.spritesData[path];
+      let targetLayer = this.constructionTools.currentLayer;
+      
+      // Si es Piso -> Capa 0
+      if (s.category === 'Piso' || s.category === 'floor') targetLayer = 0;
+      // Si es Pared -> Capa 1
+      else if (s.category === 'Pared' || s.category === 'wall') targetLayer = 1;
+      
+      this.constructionTools.setLayer(targetLayer);
+      
+      console.log("Sprite seleccionado:", path, "Capa Auto:", targetLayer);
     }
   }
 

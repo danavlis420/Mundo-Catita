@@ -18,10 +18,12 @@ export class Grid {
       'Personaje': 'sims', 'sims': 'sims'
     };
 
+    // NUEVA ESTRUCTURA: Cada celda tiene un array de 4 capas
+    // layers[0]..layers[3] contienen los datos del sprite o null
     this.tiles = Array.from({ length: rows }, () =>
       Array.from({ length: cols }, () => ({ 
-        floor: null, wall: null, object: null, sims: null,
-        sprites: { floor: null, wall: null, object: null, sims: null } 
+        layers: [null, null, null, null],
+        sprites: [null, null, null, null] // Referencias a objetos PIXI para acceso rápido
       }))
     );
 
@@ -61,125 +63,143 @@ export class Grid {
   }
 
   /**
-   * CÁLCULO MAESTRO DE POSICIÓN
-   * Corrige la alineación visual para que los objetos pisen el suelo correctamente.
+   * Obtiene posición visual ajustada.
+   * AHORA INCLUYE LÓGICA DE CAPAS PARA Z-INDEX
    */
-  getSpriteScreenPosition(targetX, targetY, spriteData) {
+  getSpriteScreenPosition(targetX, targetY, spriteData, layerIndex = 0) {
     const ax = spriteData.anchor ? spriteData.anchor.x : 0;
     const ay = spriteData.anchor ? spriteData.anchor.y : 0;
     const w = spriteData.width || 1;
     const h = spriteData.height || 1;
     
-    // 1. Centro del tile donde hicimos click
     const p = this.tileToScreen(targetX, targetY);
-    
     const internalCat = this.catMap[spriteData.category] || 'object';
     const isFloor = (internalCat === 'floor');
     
     let finalX = p.x;
     let finalY = p.y;
-    let zIndex = 0;
+    
+    // Base Z-Index calculado por posición isométrica
+    // (targetY + dGridY) asegura que objetos "mas abajo" en pantalla pinten después.
+    // Multiplicador 10 da espacio.
+    // Sumar layerIndex * 2 asegura que en la MISMA fila, Layer 1 pinte sobre Layer 0.
+    
+    let zIndexBase = 0;
 
     if (isFloor) {
-        // --- LÓGICA SUELO (Flat) ---
-        // El suelo se centra geométricamente.
         const centerTX = (w - 1) / 2;
         const centerTY = (h - 1) / 2;
-        
-        // Delta desde el anchor hasta el centro
         const dGridX = centerTX - ax;
         const dGridY = centerTY - ay;
         
-        // Offset en píxeles
         finalX += (dGridX - dGridY) * (this.tileW / 2);
         finalY += (dGridX + dGridY) * (this.tileH / 2);
         
-        zIndex = -9999 + targetY; // Siempre al fondo
-        
+        // Los pisos siempre al fondo, pero ordenados por capa
+        zIndexBase = -90000 + (targetY * 10) + (layerIndex * 2);
+
     } else {
-        // --- LÓGICA OBJETOS/PAREDES (Verticales) ---
-        // Usamos anchor (0.5, 1.0) en Pixi (pies del objeto).
-        
-        // Calculamos distancia desde el Anchor(ax,ay) hasta la Esquina Sur(w-1, h-1)
         const dGridX = (w - 1) - ax;
         const dGridY = (h - 1) - ay;
         
-        // Aplicamos offset isométrico
         finalX += (dGridX - dGridY) * (this.tileW / 2);
         finalY += (dGridX + dGridY) * (this.tileH / 2);
-        
-        // CORRECCIÓN FINAL VERTICAL: Alineamos con la punta inferior del rombo
         finalY += this.tileH / 2; 
 
-        // Z-Index basado en la posición Y del tile más "al frente"
-        zIndex = (targetY + dGridY) * 10 + (targetX + dGridX) + (spriteData.depth || 0);
+        // Objetos y paredes
+        // La "profundidad isométrica" viene de Y + X (en diagonal)
+        // Usamos una fórmula robusta para isometric sorting
+        zIndexBase = (targetY + dGridY) * 100 + (targetX + dGridX) + (layerIndex * 5) + (spriteData.depth || 0);
     }
 
-    return { x: finalX, y: finalY, zIndex };
+    return { x: finalX, y: finalY, zIndex: zIndexBase };
   }
 
-  setTileSprite(x, y, spriteData) {
-    if (!spriteData || !spriteData.category) return;
-    
-    const internalCat = this.catMap[spriteData.category] || 'object';
+  /**
+   * NUEVO: Añadir tile a una capa específica
+   */
+  setTileSprite(x, y, spriteData, layer = 0) {
+    if (!spriteData || x < 0 || y < 0 || x >= this.cols || y >= this.rows) return;
+    if (layer < 0 || layer > 3) return;
+
     const cell = this.tiles[y][x];
 
-    if (cell.sprites[internalCat]) {
-      this.container.removeChild(cell.sprites[internalCat]);
-      cell.sprites[internalCat] = null;
+    // Limpiar si ya existe algo en esa capa
+    if (cell.sprites[layer]) {
+      this.removeTileFromLayer(x, y, layer);
     }
-    cell[internalCat] = spriteData;
 
+    // Guardar datos lógicos
+    cell.layers[layer] = spriteData;
+
+    // Crear Sprite
     const texture = PIXI.Texture.from(spriteData.path);
     const sprite = new PIXI.Sprite(texture);
     
-    // Usamos la nueva función centralizada para obtener posición
-    const pos = this.getSpriteScreenPosition(x, y, spriteData);
+    // Calcular posición usando la capa
+    const pos = this.getSpriteScreenPosition(x, y, spriteData, layer);
     
     sprite.position.set(pos.x, pos.y);
     sprite.zIndex = pos.zIndex;
 
-    // Configurar Anchor de Pixi
+    const internalCat = this.catMap[spriteData.category] || 'object';
     if (internalCat === 'floor') {
         sprite.anchor.set(0.5, 0.5);
     } else {
         sprite.anchor.set(0.5, 1.0);
     }
 
-    cell.sprites[internalCat] = sprite;
+    // METADATOS PARA EL SISTEMA DE BORRADO Y HOVER
+    sprite.gridLocation = { x, y, layer };
+    sprite.isInteractiveTile = true; 
+
+    cell.sprites[layer] = sprite;
     this.container.addChild(sprite);
 
+    // Debug opcional
     if (this.innerGraphics && this.innerGraphics.visible) {
-      this.debugDrawAnchor(pos.x, pos.y, sprite);
+      this.debugDrawAnchor(pos.x, pos.y);
     }
   }
 
-  clearTile(x, y, category) {
-    const internalCat = this.catMap[category] || category;
+  /**
+   * NUEVO: Borrar tile de una capa específica
+   */
+  removeTileFromLayer(x, y, layer) {
+    if (x < 0 || y < 0 || x >= this.cols || y >= this.rows) return;
     const cell = this.tiles[y][x];
-    if (cell && cell.sprites[internalCat]) {
-      this.container.removeChild(cell.sprites[internalCat]);
-      cell.sprites[internalCat] = null;
-      cell[internalCat] = null;
+
+    if (cell.sprites[layer]) {
+        const spr = cell.sprites[layer];
+        if (spr.parent) spr.parent.removeChild(spr);
+        spr.destroy();
+        cell.sprites[layer] = null;
+        cell.layers[layer] = null;
     }
   }
 
-  debugDrawAnchor(x, y, sprite) {
-    const g = new PIXI.Graphics();
-    
-    // Solo dibujamos el punto verde
-    g.beginFill(0x00FF00);
-    g.drawCircle(0,0, 3); // Un poco más visible (radio 3)
-    g.endFill();
-    
-    g.position.set(x,y);
+  /**
+   * Método legacy wrapper (opcional, para compatibilidad si algo llama a clearTile viejo)
+   */
+  clearTile(x, y, layerOrCat) {
+     // Si pasan numero es layer, si pasan string intentamos deducir (fallback)
+     let layer = typeof layerOrCat === 'number' ? layerOrCat : 0; 
+     this.removeTileFromLayer(x, y, layer);
+  }
 
+  getTileDataAt(x, y, layer) {
+      if (x < 0 || y < 0 || x >= this.cols || y >= this.rows) return null;
+      return this.tiles[y][x].layers[layer];
+  }
+
+  debugDrawAnchor(x, y) {
+    const g = new PIXI.Graphics();
+    g.beginFill(0x00FF00);
+    g.drawCircle(0,0, 3); 
+    g.endFill();
+    g.position.set(x,y);
     this.debugContainer.addChild(g);
-    setTimeout(() => { 
-        if(!this.debugContainer.destroyed) { 
-            g.clear(); g.destroy(); this.debugContainer.removeChild(g);
-        } 
-    }, 2000);
+    setTimeout(() => { if(!this.debugContainer.destroyed) g.destroy(); }, 2000);
   }
 
   drawDebugGrid() {
