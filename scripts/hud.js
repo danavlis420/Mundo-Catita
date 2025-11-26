@@ -1,6 +1,4 @@
 // scripts/hud.js
-import { ConstructionTools } from './constructionTools.js';
-
 export class HUD {
   constructor(container, app, tooltipManager) {
     this.container = container;
@@ -13,12 +11,15 @@ export class HUD {
     this.spritesData = {};
     this.spritesList = []; 
 
-    // Instancia de Herramientas (Popup No Bloqueante)
-    // Se añade al contenedor HUD para estar en la capa UI pero es draggable
-    this.constructionTools = new ConstructionTools(app, this);
-    this.container.addChild(this.constructionTools);
+    // REFERENCIA EXTERNA (Se asignará desde main.js)
+    this.constructionTools = null; 
 
     this.loadSpritesJSON();
+  }
+
+  // Método para vincular las herramientas creadas fuera
+  setConstructionTools(toolsInstance) {
+    this.constructionTools = toolsInstance;
   }
 
   setMode(mode) { this.mode = mode; }
@@ -28,19 +29,25 @@ export class HUD {
   getSelectedSprite() { return this.selectedSprite; }
 
   toggleConstructionMode(active) {
+    if (!this.constructionTools) return;
+
     if (active) {
         this.setMode('sprite');
         this.constructionTools.open();
     } else {
-        this.setMode('camera'); // O lo que corresponda al salir
-        this.constructionTools.close();
+        this.setMode('camera'); 
+        this.constructionTools.visible = false; // Solo ocultar visualmente
         this.selectedSprite = null;
     }
   }
 
-  // Wrapper para obtener estado de herramientas
-  getConstructionTool() { return this.constructionTools.currentTool; }
-  getConstructionLayer() { return this.constructionTools.currentLayer; }
+  getConstructionTool() { 
+      return this.constructionTools ? this.constructionTools.currentTool : 'brush'; 
+  }
+  
+  getConstructionLayer() { 
+      return this.constructionTools ? this.constructionTools.currentLayer : 0; 
+  }
 
   loadSpritesJSON() {
     fetch('data/sprites.json')
@@ -48,52 +55,39 @@ export class HUD {
       .then(data => {
         this.spritesList = data;
         data.forEach(s => this.spritesData[s.path] = s);
-        // ELIMINADO: this.updateSpriteDropdown(); <- Esto causaba el error
       })
       .catch(e => console.error("Error cargando sprites.json:", e));
   }
 
-  getSpritesList() {
-    return this.spritesList || [];
-  }
-
-  getSpriteData(path) {
-    return this.spritesData[path];
-  }
+  getSpritesList() { return this.spritesList || []; }
+  getSpriteData(path) { return this.spritesData[path]; }
 
   selectSprite(path) {
     if (this.spritesData[path]) {
       this.selectedSprite = path;
-      this.setMode('sprite'); // Activa modo construcción
+      this.setMode('sprite');
       
-      // Abrir herramientas si no están abiertas
-      if (!this.constructionTools.visible) {
+      if (this.constructionTools && !this.constructionTools.visible) {
         this.constructionTools.open();
       }
 
-      // LÓGICA AUTO-CAPA
-      const s = this.spritesData[path];
-      let targetLayer = this.constructionTools.currentLayer;
-      
-      // Si es Piso -> Capa 0
-      if (s.category === 'Piso' || s.category === 'floor') targetLayer = 0;
-      // Si es Pared -> Capa 1
-      else if (s.category === 'Pared' || s.category === 'wall') targetLayer = 1;
-      
-      this.constructionTools.setLayer(targetLayer);
-      
-      console.log("Sprite seleccionado:", path, "Capa Auto:", targetLayer);
+      if (this.constructionTools) {
+        const s = this.spritesData[path];
+        let targetLayer = this.constructionTools.currentLayer;
+        if (s.category === 'Piso' || s.category === 'floor') targetLayer = 0;
+        else if (s.category === 'Pared' || s.category === 'wall') targetLayer = 1;
+        
+        this.constructionTools.setLayer(targetLayer);
+      }
     }
   }
 
-  // --- CARGA DE TEXTURAS SUAVIZADAS ---
   loadSmoothTexture(path) {
     const texture = PIXI.Texture.from(path);
     texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR; 
     return texture;
   }
 
-  // --- MÉTODOS DE DIBUJO ---
   addBackground(imagePath) {
     const texture = this.loadSmoothTexture(imagePath);
     const bg = new PIXI.Sprite(texture);
@@ -119,7 +113,6 @@ export class HUD {
     btn.cursor = 'pointer';
 
     btn.on('pointerdown', (e) => {
-      // Evitar propagación para que no interactúe con el mundo si hay superposición
       e.stopPropagation();
       btn.tint = 0xAAAAAA; 
       if (action) action();

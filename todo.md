@@ -1,7 +1,7 @@
 ## Anotar siguientes pasos del proyecto
 
-- Alineación tiles (Anchor). Reprogramar generador.
-- Modo del HUD
+- Menu grilla, pisos rojo, camara en construccion, alt: mostrar teclas
+- Menu partida
 - Personaje (móvil/estático)
 - Diálogo y cambio de cámara
 - Escenarios, cargar, programar script y triggers
